@@ -1,8 +1,8 @@
 {
-  "name": "ticker-counter",
+  "name": "reddit-stonks-front",
   "version": "1.0.0",
   "private": true,
-  "description": "Ticker Counter",
+  "description": "Reddit Stonks",
   "author": "Dainius Dauksevicius",
   "keywords": [
     "gatsby"
