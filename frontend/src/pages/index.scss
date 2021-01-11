@@ -1,0 +1,24 @@
+.change {
+  font-size: 60%;
+  margin-left: 1ch;
+}
+
+.negative-change {
+  color: darkred;
+}
+.positive-change {
+  color: green;
+}
+
+.total-column .count {
+  font-weight: bold;
+}
+
+th.subreddit-column .ant-table-column-sorters > span:not(.ant-table-column-sorter ) {
+  writing-mode: vertical-lr;
+  rotate: -160deg;
+}
+
+.odd-row > td {
+  background: #f8f8f8;
+}
