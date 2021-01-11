@@ -1,12 +1,14 @@
 {
   "name": "ticker_counter",
-  "version": "1.0.0",
+  "version": "1.0.16",
   "description": "",
   "main": "index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "startdev": "ts-node index.ts",
-    "start": "ts-node index.ts"
+    "start": "ts-node index.ts",
+    "build": "tsc --project tsconfig.json",
+    "buildhere": "tsc --project tsconfig.json --outDir ./"
   },
   "keywords": [],
   "author": "",
