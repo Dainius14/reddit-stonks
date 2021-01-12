@@ -338,7 +338,7 @@ async function writeToFile(data: any, fileName: string) {
 }
 
 function isRealTicker(ticker: string) {
-    return !fakeTickers.has(ticker) && twelveDataStockSet.has(ticker) || twelveDataEtfMap.has(ticker);
+    return !fakeTickers.has(ticker) && (twelveDataStockSet.has(ticker) || twelveDataEtfMap.has(ticker));
 }
 
 function getStartOfTomorrow() {
