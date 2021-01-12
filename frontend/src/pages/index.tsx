@@ -205,10 +205,10 @@ const IndexPage = () => {
                                     <a href={`https://finance.yahoo.com/quote/${row.ticker}`}>Yahoo Finance</a>
                                 </Title>
                                 <Title level={5} className={'stock-link'}>
-                                    <a href={`https://www.google.com/search?q=aitx`}>Google Search</a>
+                                    <a href={`https://www.google.com/search?q=${row.ticker}`}>Google Search</a>
                                 </Title>
                                 <Title level={5} className={'stock-link'}>
-                                    <a href={`https://www.google.com/search?tbm=nws&q=aitx`}>Google News</a>
+                                    <a href={`https://www.google.com/search?tbm=nws&q=${row.ticker}`}>Google News</a>
                                 </Title>
 
                             </div>
