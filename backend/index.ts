@@ -6,7 +6,10 @@ import {IexCloudApi, Quote} from './IEXCloud/iex-cloud-api';
 import dotenv from 'dotenv';
 import twelveDataStocks from './data/stocks.json';
 import twelveDataEtfs from './data/etf.json';
+import fakeTickersImport from './data/fake-tickers.json';
 import {TwelveDataETF, TwelveDataETFFile, TwelveDataStock, TwelveDataStockFile} from './TwelveData';
+
+const fakeTickers = new Set<string>(fakeTickersImport);
 
 const twelveDataStockSet = new Set<string>((twelveDataStocks as TwelveDataStockFile).data.map(x => x.symbol));
 const twelveDataStockMap = new Map<string, TwelveDataStock>();
@@ -335,7 +338,7 @@ async function writeToFile(data: any, fileName: string) {
 }
 
 function isRealTicker(ticker: string) {
-    return twelveDataStockSet.has(ticker) || twelveDataEtfMap.has(ticker);
+    return !fakeTickers.has(ticker) && twelveDataStockSet.has(ticker) || twelveDataEtfMap.has(ticker);
 }
 
 function getStartOfTomorrow() {
