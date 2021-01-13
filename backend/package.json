@@ -5,10 +5,9 @@
   "main": "index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "startdev": "ts-node index.ts",
+    "start:prod": "node dist/index.js",
     "start": "ts-node index.ts",
     "build": "tsc --project tsconfig.json",
-    "buildhere": "tsc --project tsconfig.json --outDir ./",
     "scrapereddit": "ts-node pushshift-scraper/pushshift-scraper.ts"
   },
   "keywords": [],
