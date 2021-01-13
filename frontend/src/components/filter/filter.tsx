@@ -4,11 +4,12 @@ import {CheckboxValueType} from 'antd/es/checkbox/Group';
 
 export function RSFilter(props: {
     subreddits: string[],
+    selectedSubreddits: string[],
     onChange: (value: CheckboxValueType[]) => void
 }) {
     return <Checkbox.Group
         options={props.subreddits}
-        defaultValue={props.subreddits}
+        defaultValue={props.selectedSubreddits}
         onChange={props.onChange}
     />
 }

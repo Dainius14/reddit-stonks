@@ -10,6 +10,7 @@ import { RSTable } from "../components/table/table";
 import {RSFilter} from '../components/filter/filter';
 import {CheckboxValueType} from 'antd/es/checkbox/Group';
 import {calculateData} from '../helpers/data-calculations';
+import {LocalStorage} from '../helpers/local-storage';
 
 const { Panel } = Collapse;
 
@@ -264,7 +265,7 @@ interface SubredditWithSubmissionIds {
 
 export default class IndexPage extends React.Component<IndexPageProps, IndexPageState> {
     readonly state: IndexPageState = {
-        selectedSubreddits: data.subreddits,
+        selectedSubreddits: LocalStorage.getObject<string[]>('selectedSubreddits') ?? data.subreddits,
         tickerData: rows
     };
 
@@ -274,6 +275,7 @@ export default class IndexPage extends React.Component<IndexPageProps, IndexPage
 
     onFilterChanged(newSelections: CheckboxValueType[]) {
         this.setSelectedSubreddits(newSelections as string[]);
+        LocalStorage.setObject('selectedSubreddits', newSelections as string[]);
     }
 
     render() {
@@ -288,6 +290,7 @@ export default class IndexPage extends React.Component<IndexPageProps, IndexPage
                 header={(_visibleRows) => <>
                     <RSFilter
                         subreddits={data.subreddits}
+                        selectedSubreddits={this.state.selectedSubreddits}
                         onChange={values => this.onFilterChanged(values)}
                     />
                     <span>Updated at: {formatDate(new Date(data.updatedAt))}</span>
