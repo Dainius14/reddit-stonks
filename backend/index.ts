@@ -1,4 +1,3 @@
-import {PushshiftAPI, Submission} from './pushshift';
 import * as fs from 'fs';
 import {add, formatISO, startOfDay, sub} from 'date-fns';
 import {performance} from 'perf_hooks';
@@ -8,6 +7,9 @@ import twelveDataStocks from './data/stocks.json';
 import twelveDataEtfs from './data/etf.json';
 import fakeTickersImport from './data/fake-tickers.json';
 import {TwelveDataETF, TwelveDataETFFile, TwelveDataStock, TwelveDataStockFile} from './TwelveData';
+import {DBSubmission} from './pushshift-scraper/db-models';
+import {Database} from './pushshift-scraper/database';
+import {dateToUnixSeconds} from './utils';
 
 const fakeTickers = new Set<string>(fakeTickersImport);
 
@@ -56,7 +58,7 @@ interface SubredditWithSubmissionIds {
     isChangeFinite: boolean;
 }
 
-function fillEmptyDays(groupedByDays: Record<string, Submission[]>) {
+function fillEmptyDays(groupedByDays: Record<string, DBSubmission[]>) {
     for (const date of getDayGroups()) {
         if (!groupedByDays[date]) {
             groupedByDays[date] = [];
@@ -77,7 +79,7 @@ function getDayGroups() {
         .map(date => formatISO(date, {representation: 'date'}));
 }
 
-function fillEmptySubreddits(groupedBySubreddits: Record<string, Submission[]>) {
+function fillEmptySubreddits(groupedBySubreddits: Record<string, DBSubmission[]>) {
     for (const subreddit of subreddits) {
         if (!groupedBySubreddits[subreddit]) {
             groupedBySubreddits[subreddit] = [];
@@ -162,8 +164,8 @@ async function main2() {
     console.log('Total submissions received: ', submissions.length);
     console.log('Running calculations...');
     const startTime = performance.now();
-    const submissionMap = submissions.reduce((result: Record<string, Submission>, submission) => {
-        setGroup<Submission>(result, submission.id!, submission)
+    const submissionMap = submissions.reduce((result: Record<string, DBSubmission>, submission) => {
+        setGroup<DBSubmission>(result, submission.id!, submission)
         return result;
     }, {});
 
@@ -185,18 +187,18 @@ async function main2() {
     }, 'results.json');
 }
 
-function groupSubmissions(submissions: Submission[]) {
-    const submissionsGroupedByTickers = submissions.reduce((result: Record<string, Submission[]>, submission) => {
+function groupSubmissions(submissions: DBSubmission[]) {
+    const submissionsGroupedByTickers = submissions.reduce((result: Record<string, DBSubmission[]>, submission) => {
         const uniqueTickersInTitle = extractTickersFromText(submission.title ?? '');
         const uniqueTickersInText = extractTickersFromText(submission.selftext ?? '');
         const tickers = [...new Set([...uniqueTickersInTitle, ...uniqueTickersInText])];
-        tickers.forEach(ticker => addToGroupedArray<Submission>(result, ticker, submission));
+        tickers.forEach(ticker => addToGroupedArray<DBSubmission>(result, ticker, submission));
         return result;
     }, {});
 
     const thenGroupedByDays = Object.keys(submissionsGroupedByTickers)
         .map(ticker => ({ ticker, submissions: submissionsGroupedByTickers[ticker] }))
-        .reduce((result: Record<string, Record<string, Submission[]>>, {ticker, submissions}) => {
+        .reduce((result: Record<string, Record<string, DBSubmission[]>>, {ticker, submissions}) => {
             const groupedByDays = groupSubmissionsByDay(submissions);
             fillEmptyDays(groupedByDays);
             setGroup(result, ticker, groupedByDays);
@@ -205,10 +207,10 @@ function groupSubmissions(submissions: Submission[]) {
 
     const thenGroupedBySubreddits = Object.keys(thenGroupedByDays)
         .map(ticker => ({ ticker, days: thenGroupedByDays[ticker] }))
-        .reduce((result: Record<string, Record<string, Record<string, Submission[]>>>, {ticker, days}) => {
+        .reduce((result: Record<string, Record<string, Record<string, DBSubmission[]>>>, {ticker, days}) => {
             const groupedByDaysAndSubreddits = Object.keys(days)
                 .map(day => ({ day, submissions: days[day] }))
-                .reduce((result2: Record<string, Record<string, Submission[]>>, {day, submissions}) => {
+                .reduce((result2: Record<string, Record<string, DBSubmission[]>>, {day, submissions}) => {
                     const groupedBySubreddits = groupSubmissionsBySubreddit(submissions);
                     fillEmptySubreddits(groupedBySubreddits);
                     setGroup(result2, day, groupedBySubreddits);
@@ -221,7 +223,7 @@ function groupSubmissions(submissions: Submission[]) {
     return convertObjectStructureToArrayStructure(thenGroupedBySubreddits);
 }
 
-function convertObjectStructureToArrayStructure(obj: Record<string, Record<string, Record<string, Submission[]>>>): TickerWithSubmissionIdsForEachDay[] {
+function convertObjectStructureToArrayStructure(obj: Record<string, Record<string, Record<string, DBSubmission[]>>>): TickerWithSubmissionIdsForEachDay[] {
     return Object.keys(obj).map(ticker => {
         const currentTickerGroup = obj[ticker];
         const daysGroups: DayWithSubreddits[] = Object.keys(currentTickerGroup).map(date => {
@@ -249,19 +251,19 @@ function convertObjectStructureToArrayStructure(obj: Record<string, Record<strin
     });
 }
 
-function groupSubmissionsByDay(submissions: Submission[]) {
-    return submissions.reduce((result: Record<string, Submission[]>, submission) => {
+function groupSubmissionsByDay(submissions: DBSubmission[]) {
+    return submissions.reduce((result: Record<string, DBSubmission[]>, submission) => {
         const submissionCreated = new Date(submission.created_utc! * 1000);
         const dayGroup = formatISO(startOfDay(submissionCreated), {representation: 'date'});
 
-        addToGroupedArray<Submission>(result, dayGroup, submission);
+        addToGroupedArray<DBSubmission>(result, dayGroup, submission);
         return result;
     }, {});
 }
 
-function groupSubmissionsBySubreddit(submissions: Submission[]) {
-    return submissions.reduce((result: Record<string, Submission[]>, submission) => {
-        addToGroupedArray<Submission>(result, submission.subreddit!, submission);
+function groupSubmissionsBySubreddit(submissions: DBSubmission[]) {
+    return submissions.reduce((result: Record<string, DBSubmission[]>, submission) => {
+        addToGroupedArray<DBSubmission>(result, submission.subreddit!, submission);
         return result;
     }, {});
 }
@@ -287,33 +289,9 @@ function setGroup<T>(groups: Record<string, T>, groupNameToAddTo: string, item: 
 }
 
 
-async function getSubmissions(startDate: Date, endDate: Date): Promise<Submission[]> {
-    const pushshiftAPI = new PushshiftAPI();
-    const sixHourIntervals = [];
-    while (startDate < endDate) {
-        sixHourIntervals.push({
-            start: startDate,
-            end: add(startDate, interval)
-        });
-        startDate = add(startDate, interval);
-    }
-
-    let submissions: Submission[] = [];
-    for (const {start, end} of sixHourIntervals) {
-        console.log(`Requesting data from ${formatISO(start)} to ${formatISO(end)}...`);
-        const receivedSubmissions = await pushshiftAPI.getSubmissions({
-            fields: ['id', 'title', 'link_flair_text', 'selftext', 'score', 'url', 'subreddit', 'created_utc'],
-            subreddit: subreddits,
-            'selftext:not': '[removed]',
-            size: 500,
-            before: end,
-            after: start,
-        });
-        console.log(`Received ${receivedSubmissions.length} submissions`);
-        submissions = submissions.concat(receivedSubmissions);
-    }
-
-    return submissions;
+function getSubmissions(startDate: Date, endDate: Date): DBSubmission[] {
+    const db = new Database(process.env.DB_FILE!);
+    return db.getSubmissions(dateToUnixSeconds(startDate), dateToUnixSeconds(endDate));
 }
 
 

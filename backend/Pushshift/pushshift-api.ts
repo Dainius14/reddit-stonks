@@ -9,14 +9,14 @@ export class PushshiftAPI {
     constructor() {
     }
 
-    async getSubmissions(request: { size: number; before: Date; 'selftext:not': string; after: Date; fields: string[]; subreddit: string[] }): Promise<Submission[]> {
+    async getSubmissions(request: SubmissionsRequest): Promise<Submission[]> {
         return PushshiftAPI.doRequest<Submission>(this._submissionsEndpoint, request);
     }
     async getComments(request: CommentsRequest): Promise<Comment[]> {
         return PushshiftAPI.doRequest<Comment>(this._commentsEndpoint, request);
     }
 
-    private static async doRequest<T>(endpoint: string, request: BaseRequest): Promise<T[]> {
+    private static async doRequest<T>(endpoint: string, request: BaseRequest, retry: number = 0): Promise<T[]> {
         const params = PushshiftAPI.toUrlSearchParams(request);
 
         try {
@@ -25,7 +25,15 @@ export class PushshiftAPI {
         }
         catch (ex)
         {
-            console.error(ex);
+            const e = ex as Error;
+            console.error(e.message);
+            if (retry < 3) {
+                await new Promise<void>((resolve) => {
+                    setTimeout(() => resolve(), 1000)
+                });
+                console.log('Retrying request...');
+                return this.doRequest(endpoint, request, retry + 1);
+            }
         }
         return [];
     }
@@ -64,11 +72,11 @@ interface BaseRequest {
     subreddit?: string[];
     sort?: 'asc' | 'desc';
     sort_type?: 'score' | 'num_comments' | 'created_utc';
-    before?: Date;
-    after?: Date;
+    before?: Date | number;
+    after?: Date | number;
 }
 
-export interface SubmissionRequest extends BaseRequest {
+export interface SubmissionsRequest extends BaseRequest {
 }
 
 export interface CommentsRequest extends BaseRequest {
