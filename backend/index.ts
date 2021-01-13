@@ -47,15 +47,11 @@ interface TickerWithSubmissionIdsForEachDay {
 interface DayWithSubreddits {
     date: string;
     subreddits: SubredditWithSubmissionIds[];
-    totalChange: number;
-    isChangeFinite: boolean;
 }
 
 interface SubredditWithSubmissionIds {
     subreddit: string;
     submissionIds: string[];
-    change: number;
-    isChangeFinite: boolean;
 }
 
 function fillEmptyDays(groupedByDays: Record<string, DBSubmission[]>) {
@@ -87,73 +83,6 @@ function fillEmptySubreddits(groupedBySubreddits: Record<string, DBSubmission[]>
     }
 }
 
-function calculateChanges(tickerGroup: TickerWithSubmissionIdsForEachDay) {
-    const dayGroups = getDayGroups();
-
-    for (const subreddit of subreddits) {
-        for (let i = 0; i < dayGroups.length; i++){
-            const currentDay = dayGroups[i];
-            const previousDay = dayGroups[i + 1];
-
-            const todaysSubreddit = getSubredditAtDay(currentDay, subreddit)!;
-            const tomorrowsSubreddit = getSubredditAtDay(previousDay, subreddit);
-
-            const thisDaySubmissionCount = todaysSubreddit.submissionIds.length;
-            const previousDaySubmissionCount = tomorrowsSubreddit?.submissionIds.length ?? 0;
-
-            const {change, isChangeFinite} = getChange(thisDaySubmissionCount, previousDaySubmissionCount);
-            todaysSubreddit.change = change;
-            todaysSubreddit.isChangeFinite = isChangeFinite;
-        }
-    }
-
-    for (let i = 0; i < dayGroups.length; i++){
-        const currentDay = dayGroups[i];
-        const previousDay = dayGroups[i + 1];
-
-        const thisDayGroup = tickerGroup.days.find(day => day.date === currentDay)!;
-        const previousDayGroup = tickerGroup.days.find(day => day.date === previousDay);
-
-        const thisDaySubmissionCount = thisDayGroup.subreddits
-            .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0);
-        const previousDaySubmissionCount = previousDayGroup?.subreddits
-            .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0) ?? 0;
-
-        const {change, isChangeFinite} = getChange(thisDaySubmissionCount, previousDaySubmissionCount);
-        thisDayGroup.totalChange = change;
-        thisDayGroup.isChangeFinite = isChangeFinite;
-    }
-
-    function getSubredditAtDay(date: string, subreddit: string) {
-        return tickerGroup.days.find(day => day.date === date)?.subreddits.find(x => x.subreddit == subreddit);
-    }
-
-    function getChange(thisDayCount: number, previousDayCount: number) {
-        if (thisDayCount > 0 && previousDayCount > 0) {
-            return {
-                change: thisDayCount > previousDayCount
-                    ? thisDayCount / previousDayCount - 1
-                    : -previousDayCount / thisDayCount + 1,
-                isChangeFinite: true
-            };
-        }
-        else if (thisDayCount === 0 && previousDayCount === 0) {
-            return {
-                change: 0,
-                isChangeFinite: true
-            };
-        }
-        else {
-            return {
-                change: thisDayCount > previousDayCount
-                    ? 1
-                    : -1,
-                isChangeFinite: false
-            }
-        }
-    }
-}
-
 async function main2() {
     const periodEndDate = getStartOfTomorrow();
     const periodStartDate = sub(periodEndDate, {days: daysToFetch});
@@ -171,7 +100,6 @@ async function main2() {
 
     const tickerGroups = groupSubmissions(submissions);
 
-    tickerGroups.forEach(tickerGroup => calculateChanges(tickerGroup));
     const endTime = performance.now();
     console.log(`Calculations completed in ${Math.round(Math.round(endTime - startTime))} ms`);
     console.log('Tickers found: ', tickerGroups.length);
@@ -232,16 +160,12 @@ function convertObjectStructureToArrayStructure(obj: Record<string, Record<strin
                 const currentSubredditGroup = currentDateGroup[subreddit];
                 return {
                     subreddit,
-                    submissionIds: currentSubredditGroup.map(submission => submission.id!),
-                    change: 0,
-                    isChangeFinite: true
+                    submissionIds: currentSubredditGroup.map(submission => submission.id!)
                 }
             });
             return {
                 date,
-                subreddits: subredditGroups,
-                totalChange: 0,
-                isChangeFinite: true
+                subreddits: subredditGroups
             };
         });
         return {
