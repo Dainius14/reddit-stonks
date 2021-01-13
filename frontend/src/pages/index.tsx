@@ -1,19 +1,21 @@
 import * as React from "react";
 import importedData from '../../content/results.json';
-import {Collapse, Table, Tooltip} from 'antd';
+import {Collapse, Tooltip} from 'antd';
 import {ColumnGroupType, ColumnsType} from 'antd/es/table';
 import {format, formatISO} from "date-fns";
 import './index.scss';
 import classNames from 'classnames';
 import Title from 'antd/es/typography/Title';
 import { RSTable } from "../components/table/table";
-import Search from 'antd/es/input/Search';
+import {RSFilter} from '../components/filter/filter';
+import {CheckboxValueType} from 'antd/es/checkbox/Group';
+import {calculateData} from '../helpers/data-calculations';
 
 const { Panel } = Collapse;
 
 const data = (importedData as any) as ResultFile;
 
-interface Row extends TickerWithSubmissionIdsForEachDay {
+export interface Row extends TickerWithSubmissionIdsForEachDay {
     key: string;
 }
 
@@ -36,12 +38,6 @@ const renderCell = (count: number, change: number, isChangeFinite: boolean, isLa
         </>
     )
 };
-
-function numberWithPlusSymbol(number: number) {
-    return number > 0
-        ? '+' + number
-        : number;
-}
 
 const columns: ColumnsType<Row> = [
     {
@@ -164,24 +160,6 @@ function formatDate(date: Date) {
     return format(date, 'yyyy-MM-dd HH:mm');
 }
 
-const Header = () => (<>
-    <span></span>
-    <span>Updated at: {formatDate(new Date(data.updatedAt))}</span>
-</>)
-
-const IndexPage = () => {
-    return (
-        <main>
-            <RSTable
-                columns={columns}
-                rows={rows}
-                onExpandedRowRender={expandedRow}
-                header={Header}
-            />
-        </main>
-    )
-}
-
 const expandedRow = (row: Row) => {
     const submissionGroups: Record<string, Submission[]> = {};
     for (const day of row.days) {
@@ -263,7 +241,7 @@ interface ResultFile {
     updatedAt: string;
 }
 
-interface TickerWithSubmissionIdsForEachDay {
+export interface TickerWithSubmissionIdsForEachDay {
     ticker: string;
     days: DayWithSubreddits[];
     stockData?: StockData;
@@ -283,4 +261,80 @@ interface SubredditWithSubmissionIds {
     isChangeFinite: boolean;
 }
 
-export default IndexPage
+
+export default class IndexPage extends React.Component<IndexPageProps, IndexPageState> {
+    readonly state: IndexPageState = {
+        selectedSubreddits: data.subreddits,
+        tickerData: rows
+    };
+
+    constructor(props: IndexPageProps) {
+        super(props);
+    }
+
+    onFilterChanged(newSelections: CheckboxValueType[]) {
+        this.setSelectedSubreddits(newSelections as string[]);
+    }
+
+    render() {
+        const filteredColumns = IndexPage.filterOutColumns(this.state.selectedSubreddits);
+        const recalculatedRows = calculateData(this.state.tickerData, this.state.selectedSubreddits);
+
+        return (<>
+            <RSTable
+                columns={filteredColumns}
+                rows={recalculatedRows}
+                onExpandedRowRender={expandedRow}
+                header={(_visibleRows) => <>
+                    <RSFilter
+                        subreddits={data.subreddits}
+                        onChange={values => this.onFilterChanged(values)}
+                    />
+                    <span>Updated at: {formatDate(new Date(data.updatedAt))}</span>
+                </>}
+            />
+        </>)
+    }
+
+    private static filterOutColumns(selectedSubreddits: string[]) {
+        const filteredColumns = [];
+        for (let i = 0; i < columns.length; i++) {
+            const columnGroup = columns[i] as ColumnGroupType<Row>;
+
+            // Skip ticker and stock info columns
+            if (i < 2) {
+                filteredColumns.push(columnGroup);
+                continue;
+            }
+
+            // Include total column
+            const newColumnGroup = {
+                ...columnGroup,
+                children: [columnGroup.children[0]],
+            };
+            filteredColumns.push(newColumnGroup);
+
+            for (let j = 1; j < columnGroup.children.length; j++) {
+                const subredditColumn = columnGroup.children[j];
+                if (selectedSubreddits.some(selected => (subredditColumn.key as string).endsWith(selected))) {
+                    newColumnGroup.children.push(subredditColumn);
+                }
+            }
+        }
+        return filteredColumns;
+    }
+
+    private setSelectedSubreddits(subreddits: string[]) {
+        this.setState(() => ({
+            selectedSubreddits: subreddits
+        }));
+    }
+}
+
+interface IndexPageProps {
+}
+
+interface IndexPageState {
+    selectedSubreddits: string[];
+    tickerData: Row[];
+}

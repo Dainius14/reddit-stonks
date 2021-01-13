@@ -1,6 +1,5 @@
 import classNames from 'classnames';
-import Title from 'antd/es/typography/Title';
-import {Collapse, Table} from 'antd';
+import {Table} from 'antd';
 import * as React from 'react';
 import {ColumnType} from 'antd/es/table';
 import {PanelRender} from 'rc-table/lib/interface';
