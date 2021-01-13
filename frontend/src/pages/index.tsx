@@ -6,6 +6,8 @@ import {format, formatISO} from "date-fns";
 import './index.scss';
 import classNames from 'classnames';
 import Title from 'antd/es/typography/Title';
+import { RSTable } from "../components/table/table";
+import Search from 'antd/es/input/Search';
 
 const { Panel } = Collapse;
 
@@ -141,6 +143,7 @@ const rows: Row[] = data.results.map(tickerWithSubmissionIds => ({
     ...tickerWithSubmissionIds,
 })).sort((a, b) => a.ticker.localeCompare(b.ticker));
 
+
 function getChangeText(change: number, isFinite: boolean) {
     let changePercent;
     if (isFinite) {
@@ -161,78 +164,75 @@ function formatDate(date: Date) {
     return format(date, 'yyyy-MM-dd HH:mm');
 }
 
+const Header = () => (<>
+    <span></span>
+    <span>Updated at: {formatDate(new Date(data.updatedAt))}</span>
+</>)
+
 const IndexPage = () => {
     return (
         <main>
-            <div>Updated at: {formatDate(new Date(data.updatedAt))}</div>
-            <Table
-                rowClassName={(_, i) => classNames({ 'odd-row': i % 2 === 1 })}
-                showSorterTooltip={false}
-                sortDirections={['descend', 'ascend']}
-                size={'small'}
+            <RSTable
                 columns={columns}
-                dataSource={rows}
-                pagination={{
-                    defaultPageSize: 50
-                }}
-                bordered={true}
-                expandable={{
-                    expandedRowRender: (row: Row) => {
-                        const submissionGroups: Record<string, Submission[]> = {};
-                        for (const day of row.days) {
-                            for (const subreddit of day.subreddits) {
-                                const mappedSubmissions = subreddit.submissionIds.map(id => data.submissions[id]);
-                                if (submissionGroups[subreddit.subreddit]) {
-                                    submissionGroups[subreddit.subreddit].push(...mappedSubmissions);
-                                }
-                                else
-                                {
-                                    submissionGroups[subreddit.subreddit] = mappedSubmissions;
-                                }
-                            }
-                        }
-                        const submissions = Object.keys(submissionGroups).map(subreddit => {
-                            const submissions = submissionGroups[subreddit]
-                                .sort((a, b) => parseInt(b.created_utc) - parseInt(a.created_utc));
-                            return { subreddit, submissions }
-                        })
-                        return (<>
-                            <div>
-                                <Title level={3} className={'stock-and-company-title'}>
-                                    {row.ticker}{row.stockData?.companyName ? ' : ' + row.stockData.companyName : ''}
-                                </Title>
-                                <Title level={5} className={'stock-link'}>
-                                    <a href={`https://finance.yahoo.com/quote/${row.ticker}`}>Yahoo Finance</a>
-                                </Title>
-                                <Title level={5} className={'stock-link'}>
-                                    <a href={`https://www.google.com/search?q=${row.ticker}`}>Google Search</a>
-                                </Title>
-                                <Title level={5} className={'stock-link'}>
-                                    <a href={`https://www.google.com/search?tbm=nws&q=${row.ticker}`}>Google News</a>
-                                </Title>
-
-                            </div>
-                            <Collapse ghost>
-                            {
-                                submissions.map(({subreddit, submissions}) => {
-                                    return (
-                                        <Panel header={`r/${subreddit}`} key={subreddit}>
-                                            {
-                                                submissions.map(submission => (
-                                                    <div><a href={submission.url}>{formatDate(new Date(parseInt(submission.created_utc) * 1000))} | {submission.title}</a></div>
-                                                ))
-                                            }
-                                        </Panel>
-                                    );
-                                })
-                            }
-                            </Collapse>
-                        </>);
-                    }
-                }}
+                rows={rows}
+                onExpandedRowRender={expandedRow}
+                header={Header}
             />
         </main>
     )
+}
+
+const expandedRow = (row: Row) => {
+    const submissionGroups: Record<string, Submission[]> = {};
+    for (const day of row.days) {
+        for (const subreddit of day.subreddits) {
+            const mappedSubmissions = subreddit.submissionIds.map(id => data.submissions[id]);
+            if (submissionGroups[subreddit.subreddit]) {
+                submissionGroups[subreddit.subreddit].push(...mappedSubmissions);
+            } else {
+                submissionGroups[subreddit.subreddit] = mappedSubmissions;
+            }
+        }
+    }
+    const submissions = Object.keys(submissionGroups).map(subreddit => {
+        const submissions = submissionGroups[subreddit]
+            .sort((a, b) => parseInt(b.created_utc) - parseInt(a.created_utc));
+        return {subreddit, submissions}
+    })
+    return (<>
+        <div>
+            <Title level={3} className={'stock-and-company-title'}>
+                {row.ticker}{row.stockData?.companyName ? ' : ' + row.stockData.companyName : ''}
+            </Title>
+            <Title level={5} className={'stock-link'}>
+                <a href={`https://finance.yahoo.com/quote/${row.ticker}`}>Yahoo Finance</a>
+            </Title>
+            <Title level={5} className={'stock-link'}>
+                <a href={`https://www.google.com/search?q=${row.ticker}`}>Google Search</a>
+            </Title>
+            <Title level={5} className={'stock-link'}>
+                <a href={`https://www.google.com/search?tbm=nws&q=${row.ticker}`}>Google News</a>
+            </Title>
+
+        </div>
+        <Collapse ghost>
+            {
+                submissions.map(({subreddit, submissions}) => {
+                    return (
+                        <Panel header={`r/${subreddit}`} key={subreddit}>
+                            {
+                                submissions.map(submission => (
+                                    <div><a
+                                        href={submission.url}>{formatDate(new Date(parseInt(submission.created_utc) * 1000))} | {submission.title}</a>
+                                    </div>
+                                ))
+                            }
+                        </Panel>
+                    );
+                })
+            }
+        </Collapse>
+    </>);
 }
 
 interface StockData {
