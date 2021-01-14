@@ -1,6 +1,7 @@
 $startTime = (Get-Date);
 cd backend;
-npm start;
+npm run scrapereddit;
+npm run start;
 cp results.json ../frontend/content;
 cd ../frontend;
 npm run build;
