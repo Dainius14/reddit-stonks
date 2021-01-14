@@ -1,18 +1,20 @@
-import * as React from "react";
+import * as React from 'react';
 import importedData from '../../content/results.json';
-import {Collapse, Tooltip} from 'antd';
-import {ColumnGroupType, ColumnsType} from 'antd/es/table';
-import {format, formatISO} from "date-fns";
+import {Tooltip} from 'antd';
+import {ColumnGroupType, ColumnsType, ColumnType} from 'antd/es/table';
+import {formatISO} from "date-fns";
 import './index.scss';
 import classNames from 'classnames';
-import Title from 'antd/es/typography/Title';
 import { RSTable } from "../components/table/table";
 import {RSFilter} from '../components/filter/filter';
 import {CheckboxValueType} from 'antd/es/checkbox/Group';
 import {calculateData} from '../helpers/data-calculations';
 import {LocalStorage} from '../helpers/local-storage';
-
-const { Panel } = Collapse;
+import {Input} from 'antd';
+import {SearchOutlined} from '@ant-design/icons';
+import {formatDate} from '../utilities';
+import {RSExpandedRow} from '../components/expanded-row';
+import {store} from 'gatsby/dist/redux';
 
 const data = (importedData as any) as ResultFile;
 
@@ -39,107 +41,10 @@ const renderCell = (count: number, change: number, isChangeFinite: boolean, isLa
         </>
     )
 };
-
-const columns: ColumnsType<Row> = [
-    {
-        title: 'Ticker',
-        key: 'ticker',
-        fixed: 'left',
-        width: 80,
-        sorter: (a, b) => b.ticker.localeCompare(a.ticker),
-        render: (row: Row) => <Tooltip title={row.stockData?.companyName}>{row.ticker}</Tooltip>
-    },
-    {
-        title: 'Stock data',
-        fixed: 'left',
-        children: [
-            {
-                title: 'Price',
-                key: 'price',
-                width: 80,
-                dataIndex: ['stockData', 'latestPrice'],
-                sorter: (a: Row, b: Row) => (a.stockData?.latestPrice || 0) - (b.stockData?.latestPrice || 0),
-            },
-            {
-                title: 'Change',
-                key: 'change',
-                width: 80,
-                dataIndex: ['stockData', 'change'],
-                sorter: (a: Row, b: Row) => (a.stockData?.change || 0) - (b.stockData?.change || 0),
-                render: (change) => ({
-                    props: {
-                        className: classNames({'positive-change': change > 0, 'negative-change': change < 0})
-                    },
-                    children: change
-                })
-            },
-            {
-                title: 'Change %',
-                key: 'changePercent',
-                width: 80,
-                dataIndex: ['stockData', 'changePercent'],
-                sorter: (a: Row, b: Row) => (a.stockData?.changePercent || 0) - (b.stockData?.changePercent || 0),
-                render: (change) => ({
-                    props: {
-                        className: classNames({'positive-change': change > 0, 'negative-change': change < 0})
-                    },
-                    children: Math.round(change * 100 * 100) / 100 + '%'
-                })
-            }
-        ]
-    },
-    ...data.days.map((day, dayIndex) => ({
-        title: formatISO(new Date(day), {representation: 'date'}),
-        children: [
-            {
-                title: 'Total',
-                className: 'total-column',
-                width: 80,
-                key: day + 'total',
-                sorter: (a: Row, b: Row) => {
-                    const aSubmissions = a.days.find(x => x.date === day)!.subreddits
-                        .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0)
-                    const bSubmissions = b.days.find(x => x.date === day)!.subreddits
-                        .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0)
-                    return aSubmissions - bSubmissions;
-                },
-                render: (row: Row) => {
-                    const isLastColumn = dayIndex === data.days.length - 1;
-                    const currentDay = row.days.find(x => x.date === day)!;
-                    const allTickerCountForDay = currentDay.subreddits
-                        .reduce((sum ,subreddit) => sum + subreddit.submissionIds.length, 0)
-                    return renderCell(allTickerCountForDay, currentDay.totalChange, currentDay.isChangeFinite, isLastColumn);
-                }
-            },
-            ...data.subreddits.map(subreddit => {
-            return {
-                title: subreddit,
-                className: 'subreddit-column',
-                width: 80,
-                key: day + subreddit,
-                sorter: (a: Row, b: Row) => {
-                    const aSubmissions = a.days.find(x => x.date === day)!.subreddits.find(x => x.subreddit === subreddit)!.submissionIds.length;
-                    const bSubmissions = b.days.find(x => x.date === day)!.subreddits.find(x => x.subreddit === subreddit)!.submissionIds.length;
-                    return aSubmissions - bSubmissions;
-                },
-                render: (row: Row) => {
-                    const isLastColumn = dayIndex === data.days.length - 1;
-                    const currentDay = row.days.find(x => x.date === day)!;
-                    const currentSubreddit = currentDay.subreddits.find(x => x.subreddit === subreddit)!;
-                    return renderCell(currentSubreddit.submissionIds.length, currentSubreddit.change, currentSubreddit.isChangeFinite, isLastColumn);
-                }
-            };
-        })]
-    } as ColumnGroupType<Row>))
-];
-
-(columns[3] as ColumnGroupType<Row>).children[0].defaultSortOrder = 'descend';
-
 const rows: Row[] = data.results.map(tickerWithSubmissionIds => ({
     key: tickerWithSubmissionIds.ticker,
     ...tickerWithSubmissionIds,
-})).sort((a, b) => a.ticker.localeCompare(b.ticker));
-
+}));
 
 function getChangeText(change: number, isFinite: boolean) {
     let changePercent;
@@ -157,62 +62,6 @@ function getChangeText(change: number, isFinite: boolean) {
 }
 
 
-function formatDate(date: Date) {
-    return format(date, 'yyyy-MM-dd HH:mm');
-}
-
-const expandedRow = (row: Row) => {
-    const submissionGroups: Record<string, Submission[]> = {};
-    for (const day of row.days) {
-        for (const subreddit of day.subreddits) {
-            const mappedSubmissions = subreddit.submissionIds.map(id => data.submissions[id]);
-            if (submissionGroups[subreddit.subreddit]) {
-                submissionGroups[subreddit.subreddit].push(...mappedSubmissions);
-            } else {
-                submissionGroups[subreddit.subreddit] = mappedSubmissions;
-            }
-        }
-    }
-    const submissions = Object.keys(submissionGroups).map(subreddit => {
-        const submissions = submissionGroups[subreddit]
-            .sort((a, b) => parseInt(b.created_utc) - parseInt(a.created_utc));
-        return {subreddit, submissions}
-    })
-    return (<>
-        <div>
-            <Title level={3} className={'stock-and-company-title'}>
-                {row.ticker}{row.stockData?.companyName ? ' : ' + row.stockData.companyName : ''}
-            </Title>
-            <Title level={5} className={'stock-link'}>
-                <a href={`https://finance.yahoo.com/quote/${row.ticker}`}>Yahoo Finance</a>
-            </Title>
-            <Title level={5} className={'stock-link'}>
-                <a href={`https://www.google.com/search?q=${row.ticker}`}>Google Search</a>
-            </Title>
-            <Title level={5} className={'stock-link'}>
-                <a href={`https://www.google.com/search?tbm=nws&q=${row.ticker}`}>Google News</a>
-            </Title>
-
-        </div>
-        <Collapse ghost>
-            {
-                submissions.map(({subreddit, submissions}) => {
-                    return (
-                        <Panel header={`r/${subreddit}`} key={subreddit}>
-                            {
-                                submissions.map(submission => (
-                                    <div><a
-                                        href={submission.url}>{formatDate(new Date(parseInt(submission.created_utc) * 1000))} | {submission.title}</a>
-                                    </div>
-                                ))
-                            }
-                        </Panel>
-                    );
-                })
-            }
-        </Collapse>
-    </>);
-}
 
 interface StockData {
     companyName: string;
@@ -225,7 +74,7 @@ interface StockData {
     close: number;
 }
 
-interface Submission {
+export interface Submission {
     id: string;
     score: number;
     title: string;
@@ -264,42 +113,72 @@ interface SubredditWithSubmissionIds {
 
 
 export default class IndexPage extends React.Component<IndexPageProps, IndexPageState> {
+
     readonly state: IndexPageState = {
-        selectedSubreddits: LocalStorage.getObject<string[]>('selectedSubreddits') ?? data.subreddits,
-        tickerData: rows
+        selectedSubreddits: data.subreddits,
+        searchText: ''
     };
+
+    private readonly originalTableColumns: ColumnType<Row>[] = this.createColumns();
+    private readonly originalTableRows: Row[] = rows;
+
+    private tableColumns: ColumnType<Row>[] = this.originalTableColumns;
+    private tableRows: Row[];
 
     constructor(props: IndexPageProps) {
         super(props);
+        this.tableRows = calculateData(this.originalTableRows, this.state.selectedSubreddits);
+    }
+
+    public componentDidMount() {
+        const storedSelectedSubreddits = LocalStorage.getObject<string[]>('selectedSubreddits');
+        if (storedSelectedSubreddits)
+        {
+            this.setSelectedSubreddits(storedSelectedSubreddits);
+            this.tableColumns = IndexPage.filterOutColumns(this.originalTableColumns, storedSelectedSubreddits);
+            this.tableRows = calculateData(this.originalTableRows, storedSelectedSubreddits);
+        }
     }
 
     onFilterChanged(newSelections: CheckboxValueType[]) {
-        this.setSelectedSubreddits(newSelections as string[]);
-        LocalStorage.setObject('selectedSubreddits', newSelections as string[]);
+        const newSelectionsStrings = newSelections as string[];
+        this.tableColumns = IndexPage.filterOutColumns(this.originalTableColumns, newSelectionsStrings);
+        this.tableRows = calculateData(this.originalTableRows, newSelectionsStrings);
+        this.setSelectedSubreddits(newSelectionsStrings);
+        LocalStorage.setObject('selectedSubreddits', newSelectionsStrings);
+    }
+
+    onSearch(searchText: string) {
+        this.setSearchText(searchText);
     }
 
     render() {
-        const filteredColumns = IndexPage.filterOutColumns(this.state.selectedSubreddits);
-        const recalculatedRows = calculateData(this.state.tickerData, this.state.selectedSubreddits);
-
         return (<>
             <RSTable
-                columns={filteredColumns}
-                rows={recalculatedRows}
-                onExpandedRowRender={expandedRow}
+                columns={this.tableColumns}
+                rows={this.tableRows.filter(row => row.ticker.toLowerCase().startsWith(this.state.searchText.toLowerCase()))}
+                onExpandedRowRender={(row) => <RSExpandedRow allSubmissions={data.submissions} row={row} />}
                 header={(_visibleRows) => <>
+                    <Input
+                        className={'ticker-search'}
+                        size="small"
+                        placeholder={'Search ticker...'}
+                        onChange={(event) => this.onSearch(event.target.value)}
+                        prefix={<SearchOutlined />}
+                        allowClear
+                    />
                     <RSFilter
                         subreddits={data.subreddits}
                         selectedSubreddits={this.state.selectedSubreddits}
                         onChange={values => this.onFilterChanged(values)}
                     />
-                    <span>Updated at: {formatDate(new Date(data.updatedAt))}</span>
+                    <span className={'updated-at'}>Updated at: {formatDate(new Date(data.updatedAt))}</span>
                 </>}
             />
         </>)
     }
 
-    private static filterOutColumns(selectedSubreddits: string[]) {
+    private static filterOutColumns(columns: ColumnType<Row>[], selectedSubreddits: string[]) {
         const filteredColumns = [];
         for (let i = 0; i < columns.length; i++) {
             const columnGroup = columns[i] as ColumnGroupType<Row>;
@@ -319,7 +198,7 @@ export default class IndexPage extends React.Component<IndexPageProps, IndexPage
 
             for (let j = 1; j < columnGroup.children.length; j++) {
                 const subredditColumn = columnGroup.children[j];
-                if (selectedSubreddits.some(selected => (subredditColumn.key as string).endsWith(selected))) {
+                if (selectedSubreddits.some(selected => (subredditColumn.key as string).split('@')[1] === selected)) {
                     newColumnGroup.children.push(subredditColumn);
                 }
             }
@@ -332,6 +211,124 @@ export default class IndexPage extends React.Component<IndexPageProps, IndexPage
             selectedSubreddits: subreddits
         }));
     }
+
+    private setSearchText(value: string) {
+        this.setState(() => ({
+            searchText: value
+        }));
+    }
+
+    private createColumns(): ColumnType<Row>[] {
+        const titleColumn: ColumnType<Row> = {
+            title: 'Ticker',
+            key: 'ticker',
+            fixed: 'left',
+            width: 80,
+            sorter: (a, b) => b.ticker.localeCompare(a.ticker),
+            render: (row: Row) => <Tooltip title={row.stockData?.companyName}>{row.ticker}</Tooltip>
+        };
+
+        const stockDataColumnGroup: ColumnGroupType<Row> = {
+            key: 'stockData',
+            title: 'Stock data',
+            fixed: 'left',
+            children: [
+                {
+                    title: 'Price',
+                    key: 'price',
+                    width: 80,
+                    dataIndex: ['stockData', 'latestPrice'],
+                    sorter: (a: Row, b: Row) => (a.stockData?.latestPrice || 0) - (b.stockData?.latestPrice || 0),
+                },
+                {
+                    title: 'Change',
+                    key: 'change',
+                    width: 80,
+                    dataIndex: ['stockData', 'change'],
+                    sorter: (a: Row, b: Row) => (a.stockData?.change || 0) - (b.stockData?.change || 0),
+                    render: (change) => ({
+                        props: {
+                            className: classNames({'positive-change': change > 0, 'negative-change': change < 0})
+                        },
+                        children: change
+                    })
+                },
+                {
+                    title: 'Change %',
+                    key: 'changePercent',
+                    width: 80,
+                    dataIndex: ['stockData', 'changePercent'],
+                    sorter: (a: Row, b: Row) => (a.stockData?.changePercent || 0) - (b.stockData?.changePercent || 0),
+                    render: (change) => ({
+                        props: {
+                            className: classNames({'positive-change': change > 0, 'negative-change': change < 0})
+                        },
+                        children: Math.round(change * 100 * 100) / 100 + '%'
+                    })
+                }
+            ]
+        };
+
+        const daysGroupColumnGroups: ColumnGroupType<Row>[] = data.days.map((day, dayIndex) => ({
+            key: IndexPage.formatKey(['day', dayIndex]),
+            title: formatISO(new Date(day), {representation: 'date'}),
+            children: [
+                {
+                    title: 'Total',
+                    className: 'total-column',
+                    width: 80,
+                    key: IndexPage.formatKey([day, 'total']),
+                    dataIndex: ['days', dayIndex],
+                    sorter: (a: Row, b: Row) => {
+                        const aSubmissions = a.days[dayIndex].subreddits
+                            .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0)
+                        const bSubmissions = b.days[dayIndex].subreddits
+                            .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0)
+                        return aSubmissions - bSubmissions;
+                    },
+                    render: (currentDay: DayWithSubreddits) => {
+                        const isLastColumn = dayIndex === data.days.length - 1;
+                        const allTickerCountForDay = currentDay.subreddits
+                            .reduce((sum ,subreddit) => sum + subreddit.submissionIds.length, 0)
+                        return renderCell(allTickerCountForDay, currentDay.totalChange, currentDay.isChangeFinite, isLastColumn);
+                    }
+                },
+                ...data.subreddits.map((subreddit) => {
+                    return {
+                        title: subreddit,
+                        className: 'subreddit-column',
+                        width: 80,
+                        key: IndexPage.formatKey([day, subreddit]),
+                        dataIndex: ['days', dayIndex, 'subreddits'],
+                        sorter: (a: Row, b: Row) => {
+                            const aSubmissions = a.days[dayIndex].subreddits.find(x => x.subreddit === subreddit)?.submissionIds.length ?? 0;
+                            const bSubmissions = b.days[dayIndex].subreddits.find(x => x.subreddit === subreddit)?.submissionIds.length ?? 0;
+                            // TODO reset sorting if null
+                            return aSubmissions - bSubmissions;
+                        },
+                        render: (todaysSubreddits: SubredditWithSubmissionIds[]) => {
+                            const isLastColumn = dayIndex === data.days.length - 1;
+                            const currentSubreddit = todaysSubreddits.find(x => x.subreddit === subreddit);
+                            return currentSubreddit && renderCell(currentSubreddit.submissionIds.length, currentSubreddit.change, currentSubreddit.isChangeFinite, isLastColumn);
+                        }
+                    };
+                })]
+        } as ColumnGroupType<Row>));
+
+        const columns: ColumnsType<Row> = [
+            titleColumn,
+            stockDataColumnGroup,
+            ...daysGroupColumnGroups
+        ];
+
+        (columns.find(x => x.key === 'day@0') as ColumnGroupType<Row>).children[0].defaultSortOrder = 'descend';
+
+        return columns;
+    };
+
+    private static formatKey(parts: (string | number)[]): string {
+        return parts.join('@');
+    }
 }
 
 interface IndexPageProps {
@@ -339,5 +336,5 @@ interface IndexPageProps {
 
 interface IndexPageState {
     selectedSubreddits: string[];
-    tickerData: Row[];
+    searchText: string;
 }

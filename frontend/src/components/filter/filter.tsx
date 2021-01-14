@@ -9,7 +9,7 @@ export function RSFilter(props: {
 }) {
     return <Checkbox.Group
         options={props.subreddits}
-        defaultValue={props.selectedSubreddits}
+        value={props.selectedSubreddits}
         onChange={props.onChange}
     />
 }

@@ -1,10 +1,14 @@
-export class LocalStorage {
-    static getObject<T extends object>(key: string): T | null {
+export const LocalStorage = {
+    getObject<T extends object>(key: string): T | null {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+
         const json = window.localStorage.getItem(key);
         return json != null ? JSON.parse(json) : null;
-    }
+    },
 
-    static setObject<T extends object>(key: string, obj: T): void {
+    setObject<T extends object>(key: string, obj: T): void {
         const json = JSON.stringify(obj);
         window.localStorage.setItem(key, json);
     }

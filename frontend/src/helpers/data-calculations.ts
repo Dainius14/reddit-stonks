@@ -68,20 +68,14 @@ function getChange(currentCount: number, previousCount: number) {
 }
 
 function filterSelectedSubredditsForGroup(selectedSubreddits: string[], tickerGroup: Row): Row {
-    // TODO remove when sorted in backend
-    const sortedDays = [...tickerGroup.days].sort((a, b) =>
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
     return {
         key: tickerGroup.key,
         ticker: tickerGroup.ticker,
         stockData: tickerGroup.stockData,
-        days: sortedDays.map(day => ({
+        days: tickerGroup.days.map(day => ({
             date: day.date,
             subreddits: day.subreddits
-                .filter(sub => selectedSubreddits.includes(sub.subreddit))
-                .sort((a, b) => a.subreddit.localeCompare(b.subreddit)),  // TODO remove when backend sends sorted
+                .filter(sub => selectedSubreddits.includes(sub.subreddit)),
             isChangeFinite: false,
             totalChange: 0
         }))
