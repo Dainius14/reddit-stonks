@@ -10,6 +10,7 @@ import {TwelveDataETF, TwelveDataETFFile, TwelveDataStock, TwelveDataStockFile} 
 import {DBSubmission} from './pushshift-scraper/db-models';
 import {Database} from './pushshift-scraper/database';
 import {dateToUnixSeconds} from './utils';
+import {Submission} from './Pushshift/pushshift-api';
 
 const fakeTickers = new Set<string>(fakeTickersImport);
 
@@ -21,9 +22,7 @@ const twelveDataEtfMap = new Map<string, TwelveDataETF>();
 (twelveDataEtfs as TwelveDataETFFile).data.forEach(x => twelveDataEtfMap.set(x.symbol, x));
 
 let daysToFetch: number;
-let interval: Duration;
-
-const subreddits = ['pennystocks', 'wallstreetbets', 'investing', 'stocks'];
+let subreddits: string[] = [];
 
 const tickerRegex = /[A-Z]{3,5}/g;
 
@@ -83,6 +82,25 @@ function fillEmptySubreddits(groupedBySubreddits: Record<string, DBSubmission[]>
     }
 }
 
+function sortData(tickerGroups: TickerWithSubmissionIdsForEachDay[], submissions: Record<string, DBSubmission>) {
+    tickerGroups.sort((a, b) => a.ticker.localeCompare(b.ticker));
+
+    for (const tickerGroup of tickerGroups) {
+        tickerGroup.days.sort((a, b) =>
+            new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        for (const day of tickerGroup.days) {
+            day.subreddits.sort((a, b) =>
+                a.subreddit.localeCompare(b.subreddit));
+
+            for (const subredditGroup of day.subreddits) {
+                subredditGroup.submissionIds.sort((a, b) =>
+                    submissions[b].created_utc - submissions[a].created_utc);
+            }
+        }
+    }
+}
+
 async function main2() {
     const periodEndDate = getStartOfTomorrow();
     const periodStartDate = sub(periodEndDate, {days: daysToFetch});
@@ -99,6 +117,8 @@ async function main2() {
     }, {});
 
     const tickerGroups = groupSubmissions(submissions);
+
+    sortData(tickerGroups, submissionMap);
 
     const endTime = performance.now();
     console.log(`Calculations completed in ${Math.round(Math.round(endTime - startTime))} ms`);
@@ -187,7 +207,7 @@ function groupSubmissionsByDay(submissions: DBSubmission[]) {
 
 function groupSubmissionsBySubreddit(submissions: DBSubmission[]) {
     return submissions.reduce((result: Record<string, DBSubmission[]>, submission) => {
-        addToGroupedArray<DBSubmission>(result, submission.subreddit!, submission);
+        addToGroupedArray<DBSubmission>(result, submission.subreddit!.toLowerCase(), submission);
         return result;
     }, {});
 }
@@ -286,8 +306,8 @@ async function getStockQuotes(tickers: string[]) {
 (async () => {
     try {
         dotenv.config();
+        subreddits = process.env.SCRAPING_SUBREDDITS!.split(',').sort();
         daysToFetch = parseInt(process.env.DAYS_TO_FETCH ?? '3');
-        interval = {hours: parseInt(process.env.HOURS_INTERVAL ?? '1')};
 
         console.log('Starting application...');
         const start = performance.now();
