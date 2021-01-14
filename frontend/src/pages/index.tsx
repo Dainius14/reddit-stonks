@@ -190,9 +190,9 @@ export default class IndexPage extends React.Component<IndexPageProps, IndexPage
             }
 
             // Include total column
-            const newColumnGroup = {
+            const newColumnGroup: ColumnGroupType<Row> = {
                 ...columnGroup,
-                children: [columnGroup.children[0]],
+                children: [],
             };
             filteredColumns.push(newColumnGroup);
 
@@ -201,6 +201,10 @@ export default class IndexPage extends React.Component<IndexPageProps, IndexPage
                 if (selectedSubreddits.some(selected => (subredditColumn.key as string).split('@')[1] === selected)) {
                     newColumnGroup.children.push(subredditColumn);
                 }
+            }
+
+            if (newColumnGroup.children.length > 1) {
+                newColumnGroup.children.splice(0, 0, columnGroup.children[0]);
             }
         }
         return filteredColumns;
