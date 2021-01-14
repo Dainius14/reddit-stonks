@@ -13,8 +13,7 @@ import {LocalStorage} from '../helpers/local-storage';
 import {Input} from 'antd';
 import {SearchOutlined} from '@ant-design/icons';
 import {formatDate} from '../utilities';
-import {RSExpandedRow} from '../components/expanded-row';
-import {store} from 'gatsby/dist/redux';
+import {RSExpandedRow} from '../components/expanded-row/RSExpandedRow';
 
 const data = (importedData as any) as ResultFile;
 
@@ -76,11 +75,12 @@ interface StockData {
 
 export interface Submission {
     id: string;
-    score: number;
-    title: string;
-    url: string;
     subreddit: string;
-    created_utc: string;
+    title: string;
+    created_utc: number;
+    score: number;
+    url: string;
+    is_removed: boolean;
 }
 
 interface ResultFile {
@@ -135,14 +135,14 @@ export default class IndexPage extends React.Component<IndexPageProps, IndexPage
         if (storedSelectedSubreddits)
         {
             this.setSelectedSubreddits(storedSelectedSubreddits);
-            this.tableColumns = IndexPage.filterOutColumns(this.originalTableColumns, storedSelectedSubreddits);
+            this.tableColumns = this.filterOutColumns(this.originalTableColumns, storedSelectedSubreddits);
             this.tableRows = calculateData(this.originalTableRows, storedSelectedSubreddits);
         }
     }
 
     onFilterChanged(newSelections: CheckboxValueType[]) {
         const newSelectionsStrings = newSelections as string[];
-        this.tableColumns = IndexPage.filterOutColumns(this.originalTableColumns, newSelectionsStrings);
+        this.tableColumns = this.filterOutColumns(this.originalTableColumns, newSelectionsStrings);
         this.tableRows = calculateData(this.originalTableRows, newSelectionsStrings);
         this.setSelectedSubreddits(newSelectionsStrings);
         LocalStorage.setObject('selectedSubreddits', newSelectionsStrings);
@@ -178,7 +178,7 @@ export default class IndexPage extends React.Component<IndexPageProps, IndexPage
         </>)
     }
 
-    private static filterOutColumns(columns: ColumnType<Row>[], selectedSubreddits: string[]) {
+    private filterOutColumns(columns: ColumnType<Row>[], selectedSubreddits: string[]) {
         const filteredColumns = [];
         for (let i = 0; i < columns.length; i++) {
             const columnGroup = columns[i] as ColumnGroupType<Row>;
@@ -274,7 +274,7 @@ export default class IndexPage extends React.Component<IndexPageProps, IndexPage
         };
 
         const daysGroupColumnGroups: ColumnGroupType<Row>[] = data.days.map((day, dayIndex) => ({
-            key: IndexPage.formatKey(['day', dayIndex]),
+            key: IndexPage.formatKey(['days', dayIndex]),
             title: formatISO(new Date(day), {representation: 'date'}),
             children: [
                 {
@@ -325,7 +325,7 @@ export default class IndexPage extends React.Component<IndexPageProps, IndexPage
             ...daysGroupColumnGroups
         ];
 
-        (columns.find(x => x.key === 'day@0') as ColumnGroupType<Row>).children[0].defaultSortOrder = 'descend';
+        (columns.find(x => x.key === 'days@0') as ColumnGroupType<Row>).children[0].defaultSortOrder = 'descend';
 
         return columns;
     };

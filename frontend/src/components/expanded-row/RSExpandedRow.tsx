@@ -1,9 +1,12 @@
 import Title from 'antd/es/typography/Title';
-import {Collapse} from 'antd';
+import {Collapse, Table} from 'antd';
 import * as React from 'react';
-import {Row, Submission} from '../pages';
-import {formatDate, formatDateFromUnixSeconds} from '../utilities';
+import {Row, Submission} from '../../pages';
+import {formatDateFromUnixSeconds} from '../../utilities';
 import {FunctionComponent} from 'react';
+import classNames from 'classnames';
+import './styles.scss';
+import {ColumnType} from 'antd/es/table';
 
 export const RSExpandedRow = ({row, allSubmissions}: {
     row: Row,
@@ -20,7 +23,7 @@ export const RSExpandedRow = ({row, allSubmissions}: {
             }
         }
     }
-    const submissions = Object
+    const submissionGroupsArray = Object
         .keys(submissionGroups)
         .map(subreddit => {
             const submissions = submissionGroups[subreddit];
@@ -29,7 +32,7 @@ export const RSExpandedRow = ({row, allSubmissions}: {
         .filter(x => x.submissions.length > 0);
 
     return (<>
-        <div>
+        <div className={'stock-header'}>
             <Title level={3} className={'stock-and-company-title'}>
                 {row.ticker}{row.stockData?.companyName ? ' : ' + row.stockData.companyName : ''}
             </Title>
@@ -44,22 +47,14 @@ export const RSExpandedRow = ({row, allSubmissions}: {
                 <RSStockLink href={`https://www.google.com/search?tbm=nws&q=${row.stockData.companyName}`}>Google News Company</RSStockLink>
             </>
             }
-
         </div>
+
         <Collapse ghost>
             {
-                submissions.map(({subreddit, submissions}) => {
+                submissionGroupsArray.map(({subreddit, submissions}) => {
                     return (
                         <Collapse.Panel header={`r/${subreddit} (${submissions.length})`} key={subreddit}>
-                            {
-                                submissions.map(submission => (
-                                    <div>
-                                        <a href={submission.url}>
-                                            {formatDateFromUnixSeconds(parseInt(submission.created_utc))} | {submission.title}
-                                        </a>
-                                    </div>
-                                ))
-                            }
+                            <RSSubmissionTable submissions={submissions} />
                         </Collapse.Panel>
                     );
                 })
@@ -67,6 +62,43 @@ export const RSExpandedRow = ({row, allSubmissions}: {
         </Collapse>
     </>);
 }
+
+const RSSubmissionTable: FunctionComponent<{ submissions: Submission[] }> = ({ submissions }) => {
+    const columns: ColumnType<Submission>[] = [
+        {
+            key: 'created_utc',
+            dataIndex: 'created_utc',
+            title: 'Created',
+            width: 150,
+            render: (created: number) => formatDateFromUnixSeconds(created),
+            sorter: (a: Submission, b: Submission) => a.created_utc - b.created_utc
+        },
+        {
+            key: 'score',
+            dataIndex: 'score',
+            title: 'Upvotes',
+            width: 90,
+            sorter: (a: Submission, b: Submission) => a.score - b.score
+        },
+        {
+            key: 'title',
+            title: 'Title',
+            sortDirections: ['ascend', 'descend', 'ascend'],
+            render: (submission: Submission) => <RSSubmissionLink submission={submission}/>,
+            sorter: (a: Submission, b: Submission) => a.title.localeCompare(b.title)
+        },
+    ];
+    return <Table
+        className={'extra-small'}
+        rowKey={'id'}
+        size={'small'}
+        sortDirections={['descend', 'ascend', 'descend']}
+        dataSource={submissions}
+        columns={columns}
+    />
+
+}
+
 
 const RSStockLink: FunctionComponent<{ href: string }> = ({ href, children }) => (
     <Title level={5} className={'stock-link'}>
@@ -77,3 +109,13 @@ const RSStockLink: FunctionComponent<{ href: string }> = ({ href, children }) =>
 const RSStockLinkSeparator: FunctionComponent = () => (
     <Title level={5} className={'stock-link'}>|</Title>
 );
+
+const RSSubmissionLink: FunctionComponent<{submission: Submission}> = ({ submission }) => (
+    <a href={createRedditLink(submission)} className={classNames('submission-link', {removed: submission.is_removed})}>
+        {submission.title}
+    </a>
+);
+
+function createRedditLink(submission: Submission) {
+    return `https://reddit.com/r/${submission.subreddit}/${submission.id}`;
+}
