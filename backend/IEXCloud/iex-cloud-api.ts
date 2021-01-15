@@ -40,7 +40,8 @@ export class IexCloudApi {
         }
         catch (ex)
         {
-            console.error(ex);
+            const e = ex as Error;
+            console.error(e.message);
             return null;
         }
     }

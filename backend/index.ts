@@ -53,6 +53,16 @@ interface SubredditWithSubmissionIds {
     submissionIds: string[];
 }
 
+interface SubmissionDTO {
+    id: string;
+    subreddit: string;
+    title: string;
+    created_utc: number;
+    score: number;
+    url: string;
+    is_removed: boolean;
+}
+
 function fillEmptyDays(groupedByDays: Record<string, DBSubmission[]>) {
     for (const date of getDayGroups()) {
         if (!groupedByDays[date]) {
@@ -120,6 +130,19 @@ async function main2() {
 
     sortData(tickerGroups, submissionMap);
 
+    const submissionDtoMap = submissions.reduce((result: Record<string, SubmissionDTO>, submission) => {
+        result[submission.id] = {
+            created_utc: submission.created_utc,
+            id: submission.id,
+            is_removed: submission.selftext === '[removed]',
+            score: submission.score,
+            subreddit: submission.subreddit,
+            title: submission.title,
+            url: submission.url
+        };
+        return result;
+    }, {});
+
     const endTime = performance.now();
     console.log(`Calculations completed in ${Math.round(Math.round(endTime - startTime))} ms`);
     console.log('Tickers found: ', tickerGroups.length);
@@ -128,7 +151,7 @@ async function main2() {
 
     await writeToFile({
         results: tickerGroups,
-        submissions: submissionMap,
+        submissions: submissionDtoMap,
         days: getDayGroups(),
         subreddits: subreddits,
         updatedAt: formatISO(new Date(), {representation: 'complete'})
