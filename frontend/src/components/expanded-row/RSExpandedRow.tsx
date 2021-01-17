@@ -1,18 +1,16 @@
 import Title from 'antd/es/typography/Title';
 import {Collapse, Table} from 'antd';
 import * as React from 'react';
-import {Row, Submission} from '../../pages';
+import {SubmissionDTO} from '../../pages/IndexPage';
 import {formatDateFromUnixSeconds} from '../../utilities';
 import {FunctionComponent} from 'react';
 import classNames from 'classnames';
-import './styles.scss';
+import './RSExpandedRow.styles.scss';
 import {ColumnType} from 'antd/es/table';
+import {TickerWithSubmissionIdsForEachDay} from '../../models/TableData';
 
-export const RSExpandedRow = ({row, allSubmissions}: {
-    row: Row,
-    allSubmissions: Record<string, Submission>
-}) => {
-    const submissionGroups: Record<string, Submission[]> = {};
+export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({row, allSubmissions}) => {
+    const submissionGroups: Record<string, SubmissionDTO[]> = {};
     for (const day of row.days) {
         for (const subreddit of day.subreddits) {
             const mappedSubmissions = subreddit.submissionIds.map(id => allSubmissions[id]);
@@ -31,9 +29,13 @@ export const RSExpandedRow = ({row, allSubmissions}: {
         })
         .filter(x => x.submissions.length > 0);
 
-    return (<>
+    console.log(row)
+    console.log(submissionGroups)
+    console.log(submissionGroupsArray)
+
+    return (<div className={'rs-expanded-row'}>
         <div className={'stock-header'}>
-            <Title level={3} className={'stock-and-company-title'}>
+            <Title level={4} className={'stock-and-company-title'}>
                 {row.ticker}{row.stockData?.companyName ? ' : ' + row.stockData.companyName : ''}
             </Title>
             <RSStockLink href={`https://finance.yahoo.com/quote/${row.ticker}`}>Yahoo Finance</RSStockLink>
@@ -60,34 +62,36 @@ export const RSExpandedRow = ({row, allSubmissions}: {
                 })
             }
         </Collapse>
-    </>);
+    </div>);
 }
 
-const RSSubmissionTable: FunctionComponent<{ submissions: Submission[] }> = ({ submissions }) => {
-    const columns: ColumnType<Submission>[] = [
+const RSSubmissionTable: FunctionComponent<{ submissions: SubmissionDTO[] }> = ({ submissions }) => {
+    const columns: ColumnType<SubmissionDTO>[] = [
         {
             key: 'created_utc',
             dataIndex: 'created_utc',
             title: 'Created',
             width: 150,
+            defaultSortOrder: 'descend',
             render: (created: number) => formatDateFromUnixSeconds(created),
-            sorter: (a: Submission, b: Submission) => a.created_utc - b.created_utc
+            sorter: (a: SubmissionDTO, b: SubmissionDTO) => a.created_utc - b.created_utc
         },
         {
             key: 'score',
             dataIndex: 'score',
             title: 'Upvotes',
             width: 90,
-            sorter: (a: Submission, b: Submission) => a.score - b.score
+            sorter: (a: SubmissionDTO, b: SubmissionDTO) => a.score - b.score
         },
         {
             key: 'title',
             title: 'Title',
             sortDirections: ['ascend', 'descend', 'ascend'],
-            render: (submission: Submission) => <RSSubmissionLink submission={submission}/>,
-            sorter: (a: Submission, b: Submission) => a.title.localeCompare(b.title)
+            render: (submission: SubmissionDTO) => <RSSubmissionLink submission={submission}/>,
+            sorter: (a: SubmissionDTO, b: SubmissionDTO) => a.title.localeCompare(b.title)
         },
     ];
+    console.log(submissions)
     return <Table
         className={'extra-small'}
         rowKey={'id'}
@@ -99,23 +103,29 @@ const RSSubmissionTable: FunctionComponent<{ submissions: Submission[] }> = ({ s
 
 }
 
+interface RSExpandedRowProps {
+    row: TickerWithSubmissionIdsForEachDay,
+    allSubmissions: Record<string, SubmissionDTO>
+}
+
 
 const RSStockLink: FunctionComponent<{ href: string }> = ({ href, children }) => (
-    <Title level={5} className={'stock-link'}>
-        <a href={href} target="_blank" rel="noopener">{children}</a>
-    </Title>
+    <a className={'stock-link'} href={href} target="_blank" rel="noreferrer">{children}</a>
 );
 
 const RSStockLinkSeparator: FunctionComponent = () => (
     <Title level={5} className={'stock-link'}>|</Title>
 );
 
-const RSSubmissionLink: FunctionComponent<{submission: Submission}> = ({ submission }) => (
-    <a href={createRedditLink(submission)} className={classNames('submission-link', {removed: submission.is_removed})}>
+const RSSubmissionLink: FunctionComponent<{submission: SubmissionDTO}> = ({ submission }) => (
+    <a href={createRedditLink(submission)}
+       className={classNames('submission-link', {removed: submission.is_removed})}
+       target="_blank" rel="noreferrer"
+    >
         {submission.title}
     </a>
 );
 
-function createRedditLink(submission: Submission) {
-    return `https://reddit.com/r/${submission.subreddit}/${submission.id}`;
+function createRedditLink(submission: SubmissionDTO) {
+    return `https://reddit.com/r/${submission.subreddit}/comments/${submission.id}`;
 }

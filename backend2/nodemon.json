@@ -1,7 +1,0 @@
-{
-    "watch": [
-        "src/**/*.ts"
-    ],
-    "ext": "ts,json",
-    "exec": "npm run start"
-}

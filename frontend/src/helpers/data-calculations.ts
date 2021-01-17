@@ -1,6 +1,6 @@
-import {Row} from '../pages';
+import {TickerWithSubmissionIdsForEachDay} from '../models/TableData';
 
-export function calculateData(tickerGroups: Row[], selectedSubreddits: string[]): Row[] {
+export function calculateData(tickerGroups: TickerWithSubmissionIdsForEachDay[], selectedSubreddits: string[]): TickerWithSubmissionIdsForEachDay[] {
     return tickerGroups.map(tickerGroup => {
         const newTickerGroup = filterSelectedSubredditsForGroup(selectedSubreddits, tickerGroup);
 
@@ -11,7 +11,7 @@ export function calculateData(tickerGroups: Row[], selectedSubreddits: string[])
 }
 
 
-function calculateChanges(tickerGroup: Row) {
+function calculateChanges(tickerGroup: TickerWithSubmissionIdsForEachDay) {
     for (let i = 0; i < tickerGroup.days.length; i++){
         let currentDay = tickerGroup.days[i];
         let previousDay = tickerGroup.days[i + 1];
@@ -37,7 +37,7 @@ function calculateChanges(tickerGroup: Row) {
 
         // Total day change
         const {change, isChangeFinite} = getChange(currentDayAllSubmissionCount, previousDayAllSubmissionCount);
-        currentDay.totalChange = change;
+        currentDay.change = change;
         currentDay.isChangeFinite = isChangeFinite;
     }
 }
@@ -67,9 +67,8 @@ function getChange(currentCount: number, previousCount: number) {
     }
 }
 
-function filterSelectedSubredditsForGroup(selectedSubreddits: string[], tickerGroup: Row): Row {
+function filterSelectedSubredditsForGroup(selectedSubreddits: string[], tickerGroup: TickerWithSubmissionIdsForEachDay): TickerWithSubmissionIdsForEachDay {
     return {
-        key: tickerGroup.key,
         ticker: tickerGroup.ticker,
         stockData: tickerGroup.stockData,
         days: tickerGroup.days.map(day => ({
@@ -77,7 +76,7 @@ function filterSelectedSubredditsForGroup(selectedSubreddits: string[], tickerGr
             subreddits: day.subreddits
                 .filter(sub => selectedSubreddits.includes(sub.subreddit)),
             isChangeFinite: false,
-            totalChange: 0
+            change: 0
         }))
     };
 }

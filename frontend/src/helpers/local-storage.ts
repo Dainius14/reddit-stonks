@@ -1,9 +1,5 @@
 export const LocalStorage = {
     getObject<T extends object>(key: string): T | null {
-        if (typeof window === 'undefined') {
-            return null;
-        }
-
         const json = window.localStorage.getItem(key);
         return json != null ? JSON.parse(json) : null;
     },
