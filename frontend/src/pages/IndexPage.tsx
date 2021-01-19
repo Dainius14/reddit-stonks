@@ -38,6 +38,7 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
     private submissions: Record<string, SubmissionDTO> = {};
 
     public async componentDidMount() {
+        this.setTableDataLoading(true);
         this.loadSubmissions(5);
         await Promise.allSettled([
             this.loadAvailableSubreddits(),
@@ -46,16 +47,15 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
 
         this.originalTableColumns = IndexPage.createColumns(this.dayGroupsDesc, this.availableSubreddits);
         this.updateTable(this.state.searchText, this.state.selectedSubreddits);
+        this.setTableDataLoading(false);
     }
 
     private async loadTableData(days: number) {
         try {
-            this.setTableDataLoading(true);
             const response = await RedditStonksApi.getMainData(days);
             this.originalTableRows = mapFromTickerGroupDtos(response.data);
             this.dayGroupsDesc = response.daysDesc;
             this.tableDataUpdatedAt = new Date(response.updatedAt);
-            this.setTableDataLoading(false);
         }
         catch (ex) {
             const e = ex as RequestError;
@@ -113,35 +113,35 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
     }
 
     render() {
-        // TODO find better way to add table sorting later
-        if (this.state.tableColumns.length === 0) {
-            return <Spin spinning={true} />
-        }
 
         return (<>
-            <RSTable
-                dataUpdatedAt={this.tableDataUpdatedAt}
-                loading={this.state.tableDataLoading}
-                columns={this.state.tableColumns}
-                rows={this.state.tableRows}
-                onChange={(a, b, c, d) => console.log(a,b,c,d)}
-                onExpandedRowRender={(row) => <RSExpandedRow allSubmissions={this.submissions} row={row}/>}
-                header={(_visibleRows) => <>
-                    <Input
-                        className={'ticker-search'}
-                        size="small"
-                        placeholder={'Search ticker...'}
-                        onChange={(event) => this.onSearch(event.target.value)}
-                        prefix={<SearchOutlined/>}
-                        allowClear
-                    />
-                    <RSFilter
-                        subreddits={this.availableSubreddits}
-                        selectedSubreddits={this.state.selectedSubreddits}
-                        onChange={values => this.onFilterChanged(values)}
-                    />
-                </>}
-            />
+            <div className={'rs-index-header'}>
+                <Input
+                    className={'ticker-search'}
+                    size="small"
+                    placeholder={'Search ticker...'}
+                    onChange={(event) => this.onSearch(event.target.value)}
+                    prefix={<SearchOutlined/>}
+                    allowClear
+                />
+                <RSFilter
+                    subreddits={this.availableSubreddits}
+                    selectedSubreddits={this.state.selectedSubreddits}
+                    onChange={values => this.onFilterChanged(values)}
+                />
+            </div>
+
+
+            {this.state.tableDataLoading
+                ? <div className={'rs-index-table-spinner-container'}><Spin className={'spinner'} spinning={true}/></div>
+                : <RSTable
+                    dataUpdatedAt={this.tableDataUpdatedAt}
+                    columns={this.state.tableColumns}
+                    rows={this.state.tableRows}
+                    onChange={(a, b, c, d) => console.log(a, b, c, d)}
+                    onExpandedRowRender={(row) => <RSExpandedRow allSubmissions={this.submissions} row={row}/>}
+                />
+            }
         </>);
     }
 

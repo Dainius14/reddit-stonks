@@ -3,13 +3,6 @@
         display: flex;
     }
 
-    .ticker-search {
-        width: 150px;
-        min-width: 150px;
-        max-width: 150px;
-        margin-right: 8px;
-    }
-
     .ant-table-pagination.ant-pagination {
         margin: 2px;
     }
@@ -22,5 +15,28 @@
     .updated-at {
         padding-left: 2px;
         font-size: 12px;
+    }
+}
+
+.rs-index-header {
+    display: flex;
+    flex-direction: row;
+
+    padding: 8px;
+
+    .ticker-search {
+        width: 150px;
+        min-width: 150px;
+        max-width: 150px;
+        margin-right: 8px;
+        max-height: 22px;
+    }
+}
+
+.rs-index-table-spinner-container {
+    padding-top: 200px;
+
+    .spinner {
+        width: 100%;
     }
 }

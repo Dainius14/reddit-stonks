@@ -9,7 +9,7 @@ import {TickerWithSubmissionIdsForEachDay} from '../../models/TableData';
 import {formatDate} from '../../utilities';
 import {Key, SorterResult, TableCurrentDataSource, TablePaginationConfig} from 'antd/lib/table/interface';
 
-export const RSTable: FunctionComponent<RSTableProps> = ({loading, columns, rows, onExpandedRowRender, header,
+export const RSTable: FunctionComponent<RSTableProps> = ({loading, columns, rows, onExpandedRowRender,
                      dataUpdatedAt, onChange}) => {
     const [headerHeight, setHeaderHeight] = useState<number>(0);
     useEffect(() => {
@@ -32,7 +32,7 @@ export const RSTable: FunctionComponent<RSTableProps> = ({loading, columns, rows
             columns={columns}
             dataSource={rows}
             pagination={{
-                defaultPageSize: 50,
+                defaultPageSize: 25,
                 showTotal: (_totalRows) =>
                     <span className={'updated-at'}>
                         { dataUpdatedAt &&
@@ -44,7 +44,6 @@ export const RSTable: FunctionComponent<RSTableProps> = ({loading, columns, rows
             expandable={{
                 expandedRowRender: onExpandedRowRender,
             }}
-            title={header}
             scroll={{ x: '100vw', y: `calc(100vh - 41px - 24px - 4px - ${headerHeight}px - 1px)`}}
             onChange={onChange}
         />
@@ -54,11 +53,10 @@ export const RSTable: FunctionComponent<RSTableProps> = ({loading, columns, rows
 
 
 interface RSTableProps {
-    loading: boolean;
+    loading?: boolean;
     columns: ColumnType<TickerWithSubmissionIdsForEachDay>[];
     rows: TickerWithSubmissionIdsForEachDay[];
     onExpandedRowRender: (row: TickerWithSubmissionIdsForEachDay) => JSX.Element;
-    header: PanelRender<TickerWithSubmissionIdsForEachDay>;
     dataUpdatedAt?: Date;
     onChange: (pagination: TablePaginationConfig, filters: Record<string, (Key | boolean)[] | null>, sorter: SorterResult<TickerWithSubmissionIdsForEachDay> | SorterResult<TickerWithSubmissionIdsForEachDay>[], extra: TableCurrentDataSource<TickerWithSubmissionIdsForEachDay>) => void
 }
