@@ -1,5 +1,5 @@
 import React, {Component} from 'react';
-import {Input, Tooltip} from 'antd';
+import {Input, Spin, Tooltip} from 'antd';
 import {ColumnGroupType, ColumnsType, ColumnType} from 'antd/es/table';
 import {CheckboxValueType} from 'antd/es/checkbox/Group';
 import {RSTable} from '../components/table/RSTable';
@@ -45,7 +45,7 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         ]);
 
         this.originalTableColumns = IndexPage.createColumns(this.dayGroupsDesc, this.availableSubreddits);
-        this.updateTable(this.state.searchText, this.state.selectedSubreddits, true);
+        this.updateTable(this.state.searchText, this.state.selectedSubreddits);
     }
 
     private async loadTableData(days: number) {
@@ -89,18 +89,11 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         }
     }
 
-    private updateTable(searchText: string, selectedSubreddits: string[], firstChange: boolean = false) {
-        const filteredRows = !searchText
+    private updateTable(searchText: string, selectedSubreddits: string[]) {
+        const filteredRows = searchText
             ? this.originalTableRows.filter(x => x.ticker.toLowerCase().startsWith(searchText.toLowerCase()))
             : this.originalTableRows;
         const tableRows = calculateData(filteredRows, selectedSubreddits);
-        if (firstChange) {
-            console.log(firstChange)
-            tableRows.sort((a, b) =>
-                b.days[0].subreddits.reduce((sum, x) => sum + x.submissionIds.length, 0)
-                - a.days[0].subreddits.reduce((sum, x) => sum + x.submissionIds.length, 0));
-            console.log(tableRows)
-        }
         this.setTableRows(tableRows);
 
         const tableColumns = this.filterOutColumns(this.originalTableColumns, selectedSubreddits);
@@ -116,15 +109,22 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
 
     onSearch(searchText: string) {
         this.setSearchText(searchText);
+        this.updateTable(searchText, this.state.selectedSubreddits);
     }
 
     render() {
+        // TODO find better way to add table sorting later
+        if (this.state.tableColumns.length === 0) {
+            return <Spin spinning={true} />
+        }
+
         return (<>
             <RSTable
                 dataUpdatedAt={this.tableDataUpdatedAt}
                 loading={this.state.tableDataLoading}
                 columns={this.state.tableColumns}
                 rows={this.state.tableRows}
+                onChange={(a, b, c, d) => console.log(a,b,c,d)}
                 onExpandedRowRender={(row) => <RSExpandedRow allSubmissions={this.submissions} row={row}/>}
                 header={(_visibleRows) => <>
                     <Input
@@ -375,4 +375,5 @@ export interface SubmissionDTO {
     score: number;
     url: string;
     is_removed: boolean;
+    author: string;
 }

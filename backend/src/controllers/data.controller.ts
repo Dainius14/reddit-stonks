@@ -58,7 +58,8 @@ export class DataController {
                 score: submission.score,
                 subreddit: submission.subreddit,
                 title: submission.title,
-                url: submission.url
+                url: submission.url,
+                author: submission.author
             };
             return result;
         }, {});

@@ -6,4 +6,5 @@ export interface SubmissionDTO {
     score: number;
     url: string;
     is_removed: boolean;
+    author: string;
 }

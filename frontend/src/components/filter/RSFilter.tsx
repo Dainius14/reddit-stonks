@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {Button, Checkbox, Skeleton, Spin} from "antd";
+import {Checkbox} from 'antd';
 import {CheckboxValueType} from 'antd/es/checkbox/Group';
 import {FunctionComponent} from 'react';
 

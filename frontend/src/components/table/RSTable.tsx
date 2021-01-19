@@ -4,13 +4,13 @@ import * as React from 'react';
 import {ColumnType} from 'antd/es/table';
 import {PanelRender} from 'rc-table/lib/interface';
 import './RSTable.styles.scss';
-import {createRef, FunctionComponent, useEffect, useState} from 'react';
+import {FunctionComponent, useEffect, useState} from 'react';
 import {TickerWithSubmissionIdsForEachDay} from '../../models/TableData';
-import {RSFilter} from '../filter/RSFilter';
 import {formatDate} from '../../utilities';
+import {Key, SorterResult, TableCurrentDataSource, TablePaginationConfig} from 'antd/lib/table/interface';
 
 export const RSTable: FunctionComponent<RSTableProps> = ({loading, columns, rows, onExpandedRowRender, header,
-                     dataUpdatedAt}) => {
+                     dataUpdatedAt, onChange}) => {
     const [headerHeight, setHeaderHeight] = useState<number>(0);
     useEffect(() => {
         const headerEl = document.querySelector('.main-data-table .ant-table-header');
@@ -46,6 +46,7 @@ export const RSTable: FunctionComponent<RSTableProps> = ({loading, columns, rows
             }}
             title={header}
             scroll={{ x: '100vw', y: `calc(100vh - 41px - 24px - 4px - ${headerHeight}px - 1px)`}}
+            onChange={onChange}
         />
     );
 }
@@ -59,4 +60,5 @@ interface RSTableProps {
     onExpandedRowRender: (row: TickerWithSubmissionIdsForEachDay) => JSX.Element;
     header: PanelRender<TickerWithSubmissionIdsForEachDay>;
     dataUpdatedAt?: Date;
+    onChange: (pagination: TablePaginationConfig, filters: Record<string, (Key | boolean)[] | null>, sorter: SorterResult<TickerWithSubmissionIdsForEachDay> | SorterResult<TickerWithSubmissionIdsForEachDay>[], extra: TableCurrentDataSource<TickerWithSubmissionIdsForEachDay>) => void
 }

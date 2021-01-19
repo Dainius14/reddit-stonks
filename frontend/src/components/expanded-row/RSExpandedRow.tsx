@@ -52,11 +52,15 @@ export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({row, allSu
         </div>
 
         <Collapse ghost>
+            <Collapse.Panel key={'all'} header={'All'}>
+                <RSSubmissionTable submissions={Object.values(allSubmissions)} allSubreddits={true}/>
+            </Collapse.Panel>
+
             {
                 submissionGroupsArray.map(({subreddit, submissions}) => {
                     return (
                         <Collapse.Panel header={`r/${subreddit} (${submissions.length})`} key={subreddit}>
-                            <RSSubmissionTable submissions={submissions} />
+                            <RSSubmissionTable submissions={submissions} allSubreddits={false}/>
                         </Collapse.Panel>
                     );
                 })
@@ -65,7 +69,7 @@ export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({row, allSu
     </div>);
 }
 
-const RSSubmissionTable: FunctionComponent<{ submissions: SubmissionDTO[] }> = ({ submissions }) => {
+const RSSubmissionTable: FunctionComponent<{ submissions: SubmissionDTO[], allSubreddits: boolean }> = ({ submissions, allSubreddits }) => {
     const columns: ColumnType<SubmissionDTO>[] = [
         {
             key: 'created_utc',
@@ -84,6 +88,13 @@ const RSSubmissionTable: FunctionComponent<{ submissions: SubmissionDTO[] }> = (
             sorter: (a: SubmissionDTO, b: SubmissionDTO) => a.score - b.score
         },
         {
+            key: 'author',
+            title: 'Author',
+            sortDirections: ['ascend', 'descend', 'ascend'],
+            sorter: (a: SubmissionDTO, b: SubmissionDTO) => a.author.localeCompare(b.author),
+            render: (submission: SubmissionDTO) => <RSAuthorLink submission={submission}/>
+        },
+        {
             key: 'title',
             title: 'Title',
             sortDirections: ['ascend', 'descend', 'ascend'],
@@ -91,7 +102,16 @@ const RSSubmissionTable: FunctionComponent<{ submissions: SubmissionDTO[] }> = (
             sorter: (a: SubmissionDTO, b: SubmissionDTO) => a.title.localeCompare(b.title)
         },
     ];
-    console.log(submissions)
+    if (allSubreddits) {
+        columns.splice(1, 0, {
+            key: 'subreddit',
+            title: 'Subreddit',
+            dataIndex: 'subreddit',
+            sortDirections: ['ascend', 'descend', 'ascend'],
+            sorter: (a: SubmissionDTO, b: SubmissionDTO) => a.subreddit.localeCompare(b.subreddit),
+        });
+    }
+
     return <Table
         className={'extra-small'}
         rowKey={'id'}
@@ -118,7 +138,7 @@ const RSStockLinkSeparator: FunctionComponent = () => (
 );
 
 const RSSubmissionLink: FunctionComponent<{submission: SubmissionDTO}> = ({ submission }) => (
-    <a href={createRedditLink(submission)}
+    <a href={createRedditSubmissionLink(submission)}
        className={classNames('submission-link', {removed: submission.is_removed})}
        target="_blank" rel="noreferrer"
     >
@@ -126,6 +146,19 @@ const RSSubmissionLink: FunctionComponent<{submission: SubmissionDTO}> = ({ subm
     </a>
 );
 
-function createRedditLink(submission: SubmissionDTO) {
+const RSAuthorLink: FunctionComponent<{submission: SubmissionDTO}> = ({ submission }) => (
+    <a href={createRedditUserLink(submission)}
+       className={classNames('submission-link')}
+       target="_blank" rel="noreferrer"
+    >
+        {submission.author}
+    </a>
+);
+
+function createRedditSubmissionLink(submission: SubmissionDTO) {
     return `https://reddit.com/r/${submission.subreddit}/comments/${submission.id}`;
+}
+
+function createRedditUserLink(submission: SubmissionDTO) {
+    return `https://reddit.com/u/${submission.author}`;
 }
