@@ -53,7 +53,7 @@ export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({row, allSu
 
         <Collapse ghost>
             <Collapse.Panel key={'all'} header={'All'}>
-                <RSSubmissionTable submissions={Object.values(allSubmissions)} allSubreddits={true}/>
+                <RSSubmissionTable submissions={Object.values(submissionGroups).flat()} allSubreddits={true}/>
             </Collapse.Panel>
 
             {
