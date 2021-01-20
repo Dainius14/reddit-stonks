@@ -7,7 +7,7 @@ export const RSFilter: FunctionComponent<RSFilterProps> = ({subreddits, selected
     return (
         <Checkbox.Group
             options={subreddits}
-            value={selectedSubreddits}
+            value={[...selectedSubreddits]}
             onChange={onChange}
         />
     );
@@ -15,6 +15,6 @@ export const RSFilter: FunctionComponent<RSFilterProps> = ({subreddits, selected
 
 interface RSFilterProps {
     subreddits: string[];
-    selectedSubreddits: string[];
+    selectedSubreddits: Set<string>;
     onChange: (value: CheckboxValueType[]) => void
 }

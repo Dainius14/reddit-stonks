@@ -1,6 +1,6 @@
 import {TickerWithSubmissionIdsForEachDay} from '../models/TableData';
 
-export function calculateData(tickerGroups: TickerWithSubmissionIdsForEachDay[], selectedSubreddits: string[]): TickerWithSubmissionIdsForEachDay[] {
+export function calculateData(tickerGroups: TickerWithSubmissionIdsForEachDay[], selectedSubreddits: Set<string>): TickerWithSubmissionIdsForEachDay[] {
     return tickerGroups.map(tickerGroup => {
         const newTickerGroup = filterSelectedSubredditsForGroup(selectedSubreddits, tickerGroup);
 
@@ -67,14 +67,13 @@ function getChange(currentCount: number, previousCount: number) {
     }
 }
 
-function filterSelectedSubredditsForGroup(selectedSubreddits: string[], tickerGroup: TickerWithSubmissionIdsForEachDay): TickerWithSubmissionIdsForEachDay {
+function filterSelectedSubredditsForGroup(selectedSubreddits: Set<string>, tickerGroup: TickerWithSubmissionIdsForEachDay): TickerWithSubmissionIdsForEachDay {
     return {
         ticker: tickerGroup.ticker,
         stockData: tickerGroup.stockData,
         days: tickerGroup.days.map(day => ({
             date: day.date,
-            subreddits: day.subreddits
-                .filter(sub => selectedSubreddits.includes(sub.subreddit)),
+            subreddits: day.subreddits.filter(sub => selectedSubreddits.has(sub.subreddit)),
             isChangeFinite: false,
             change: 0
         }))

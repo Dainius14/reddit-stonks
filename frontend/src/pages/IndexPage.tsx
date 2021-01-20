@@ -1,6 +1,5 @@
 import React, {Component} from 'react';
-import {Input, Spin, Tooltip} from 'antd';
-import {ColumnGroupType, ColumnsType, ColumnType} from 'antd/es/table';
+import {Input, Spin} from 'antd';
 import {CheckboxValueType} from 'antd/es/checkbox/Group';
 import {RSTable} from '../components/table/RSTable';
 import { RSExpandedRow } from '../components/expanded-row/RSExpandedRow';
@@ -10,31 +9,36 @@ import './IndexPage.styles.scss';
 import {RedditStonksApi, RequestError} from '../api';
 import {LocalStorage} from '../helpers/local-storage';
 import {
-    DayWithSubreddits,
-    SubredditWithSubmissionIds,
     TickerWithSubmissionIdsForEachDay,
 } from '../models/TableData';
-import classNames from 'classnames';
-import {formatISO} from 'date-fns';
 import {mapFromTickerGroupDtos} from '../helpers/mappers';
-import {calculateData} from '../helpers/data-calculations';
+
+
+interface IndexPageProps {
+}
+
+interface IndexPageState {
+    availableSubreddits: string[];
+    availableDayGroups: string[];
+    selectedSubreddits: Set<string>;
+    mainData: TickerWithSubmissionIdsForEachDay[];
+    mainDataUpdatedAt?: Date;
+    searchText: string;
+    tableDataLoading: boolean;
+}
 
 export class IndexPage extends Component<IndexPageProps, IndexPageState> {
 
     readonly state: IndexPageState = {
-        selectedSubreddits: [],
+        availableSubreddits: [],
+        availableDayGroups: [],
+        selectedSubreddits: new Set<string>(),
+        mainData: [],
+        mainDataUpdatedAt: undefined,
         searchText: '',
-        tableDataLoading: false,
-        tableColumns: [],
-        tableRows: [],
+        tableDataLoading: true,
     };
 
-    private originalTableColumns: ColumnType<TickerWithSubmissionIdsForEachDay>[] = [];
-    private originalTableRows: TickerWithSubmissionIdsForEachDay[] = [];
-
-    private dayGroupsDesc: string[] = [];
-    private tableDataUpdatedAt?: Date;
-    private availableSubreddits: string[] = [];
     private submissions: Record<string, SubmissionDTO> = {};
 
     public async componentDidMount() {
@@ -45,17 +49,15 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
             this.loadTableData(5),
         ]);
 
-        this.originalTableColumns = IndexPage.createColumns(this.dayGroupsDesc, this.availableSubreddits);
-        this.updateTable(this.state.searchText, this.state.selectedSubreddits);
         this.setTableDataLoading(false);
     }
 
     private async loadTableData(days: number) {
         try {
             const response = await RedditStonksApi.getMainData(days);
-            this.originalTableRows = mapFromTickerGroupDtos(response.data);
-            this.dayGroupsDesc = response.daysDesc;
-            this.tableDataUpdatedAt = new Date(response.updatedAt);
+            this.setMainData(mapFromTickerGroupDtos(response.data));
+            this.setMainDataUpdatedAt(new Date(response.updatedAt));
+            this.setAvailableDayGroups(response.daysDesc);
         }
         catch (ex) {
             const e = ex as RequestError;
@@ -65,13 +67,15 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
 
     private async loadAvailableSubreddits() {
         try {
-            this.availableSubreddits = await RedditStonksApi.getAvailableSubreddits();
+            const availableSubreddits = await RedditStonksApi.getAvailableSubreddits();
 
             const savedSelectedSubreddits = LocalStorage.getObject<string[]>('selectedSubreddits');
             const selectedSubreddits = savedSelectedSubreddits
-                ? savedSelectedSubreddits.filter(x => this.availableSubreddits.includes(x))
-                : this.availableSubreddits;
-            this.setSelectedSubreddits(selectedSubreddits);
+                ? savedSelectedSubreddits.filter(x => availableSubreddits.includes(x))
+                : availableSubreddits;
+
+            this.setAvailableSubreddits(availableSubreddits);
+            this.setSelectedSubreddits(new Set<string>(selectedSubreddits));
         }
         catch (ex) {
             const e = ex as RequestError;
@@ -89,43 +93,29 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         }
     }
 
-    private updateTable(searchText: string, selectedSubreddits: string[]) {
-        const filteredRows = searchText
-            ? this.originalTableRows.filter(x => x.ticker.toLowerCase().startsWith(searchText.toLowerCase()))
-            : this.originalTableRows;
-        const tableRows = calculateData(filteredRows, selectedSubreddits);
-        this.setTableRows(tableRows);
-
-        const tableColumns = this.filterOutColumns(this.originalTableColumns, selectedSubreddits);
-        this.setTableColumns(tableColumns);
-    }
-
     onFilterChanged(newSelections: CheckboxValueType[]) {
         const newSelectionsStrings = newSelections as string[];
-        this.updateTable(this.state.searchText, newSelectionsStrings);
-        this.setSelectedSubreddits(newSelectionsStrings);
+        this.setSelectedSubreddits(new Set<string>(newSelectionsStrings));
         LocalStorage.setObject('selectedSubreddits', newSelectionsStrings);
     }
 
     onSearch(searchText: string) {
         this.setSearchText(searchText);
-        this.updateTable(searchText, this.state.selectedSubreddits);
     }
 
     render() {
-
         return (<>
             <div className={'rs-index-header'}>
                 <Input
                     className={'ticker-search'}
                     size="small"
                     placeholder={'Search ticker...'}
-                    onChange={(event) => this.onSearch(event.target.value)}
+                    onChange={(event) => this.setSearchText(event.target.value)}
                     prefix={<SearchOutlined/>}
                     allowClear
                 />
                 <RSFilter
-                    subreddits={this.availableSubreddits}
+                    subreddits={this.state.availableSubreddits}
                     selectedSubreddits={this.state.selectedSubreddits}
                     onChange={values => this.onFilterChanged(values)}
                 />
@@ -135,51 +125,41 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
             {this.state.tableDataLoading
                 ? <div className={'rs-index-table-spinner-container'}><Spin className={'spinner'} spinning={true}/></div>
                 : <RSTable
-                    dataUpdatedAt={this.tableDataUpdatedAt}
-                    columns={this.state.tableColumns}
-                    rows={this.state.tableRows}
-                    onChange={(a, b, c, d) => console.log(a, b, c, d)}
-                    onExpandedRowRender={(row) => <RSExpandedRow allSubmissions={this.submissions} row={row}/>}
+                    searchText={this.state.searchText}
+                    dayGroups={this.state.availableDayGroups}
+                    availableSubreddits={this.state.availableSubreddits}
+                    selectedSubreddits={this.state.selectedSubreddits}
+                    dataUpdatedAt={this.state.mainDataUpdatedAt}
+                    data={this.state.mainData}
+                    onChange={(a, b, c, d) => null}
+                    onExpandedRowRender={(calculatedRow) => <RSExpandedRow
+                        allSubmissions={this.submissions}
+                        calculatedRow={calculatedRow}
+                        rawRow={this.state.mainData.find(x => x.ticker === calculatedRow.ticker)!}
+                        selectedSubreddits={this.state.selectedSubreddits}
+                    />}
                 />
             }
         </>);
     }
 
-    private filterOutColumns(columns: ColumnType<TickerWithSubmissionIdsForEachDay>[], selectedSubreddits: string[]) {
-        const filteredColumns = [];
-        for (let i = 0; i < columns.length; i++) {
-            const columnGroup = columns[i] as ColumnGroupType<TickerWithSubmissionIdsForEachDay>;
 
-            // Skip ticker and stock info columns
-            if (i < 2) {
-                filteredColumns.push(columnGroup);
-                continue;
-            }
 
-            // Include total column
-            const newColumnGroup: ColumnGroupType<TickerWithSubmissionIdsForEachDay> = {
-                ...columnGroup,
-                children: [],
-            };
-            filteredColumns.push(newColumnGroup);
-
-            for (let j = 1; j < columnGroup.children.length; j++) {
-                const subredditColumn = columnGroup.children[j];
-                if (selectedSubreddits.some(selected => (subredditColumn.key as string).split('@')[1] === selected)) {
-                    newColumnGroup.children.push(subredditColumn);
-                }
-            }
-
-            if (newColumnGroup.children.length > 1) {
-                newColumnGroup.children.splice(0, 0, columnGroup.children[0]);
-            }
-        }
-        return filteredColumns;
+    private setAvailableSubreddits(subreddits: string[]) {
+        this.setState(() => ({
+            availableSubreddits: subreddits,
+        }));
     }
 
-    private setSelectedSubreddits(subreddits: string[]) {
+    private setSelectedSubreddits(subreddits: Set<string>) {
         this.setState(() => ({
             selectedSubreddits: subreddits,
+        }));
+    }
+
+    private setAvailableDayGroups(subreddits: string[]) {
+        this.setState(() => ({
+            availableDayGroups: subreddits,
         }));
     }
 
@@ -195,177 +175,19 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         }));
     }
 
-    private setTableRows(value: TickerWithSubmissionIdsForEachDay[]) {
+    private setMainData(value: TickerWithSubmissionIdsForEachDay[]) {
         this.setState(() => ({
-            tableRows: value,
+            mainData: value,
         }));
     }
 
-    private setTableColumns(value: ColumnType<TickerWithSubmissionIdsForEachDay>[]) {
+    private setMainDataUpdatedAt(value: Date) {
         this.setState(() => ({
-            tableColumns: value,
+            mainDataUpdatedAt: value,
         }));
     }
 
-    private static createColumns(dayGroupsDesc: string[], selectedSubreddits: string[]): ColumnType<TickerWithSubmissionIdsForEachDay>[] {
-        const titleColumn: ColumnType<TickerWithSubmissionIdsForEachDay> = {
-            title: 'Ticker',
-            key: 'ticker',
-            fixed: 'left',
-            width: 80,
-            sorter: (a, b) => b.ticker.localeCompare(a.ticker),
-            render: (row: TickerWithSubmissionIdsForEachDay) => <Tooltip title={row.stockData?.companyName}>{row.ticker}</Tooltip>,
-        };
-
-        const stockDataColumnGroup: ColumnGroupType<TickerWithSubmissionIdsForEachDay> = {
-            key: 'stockData',
-            title: 'Stock data',
-            fixed: 'left',
-            children: [
-                {
-                    title: 'Price',
-                    key: 'price',
-                    width: 80,
-                    dataIndex: ['stockData', 'latestPrice'],
-                    sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.latestPrice || 0) - (b.stockData?.latestPrice || 0),
-                },
-                {
-                    title: 'Change',
-                    key: 'change',
-                    width: 80,
-                    dataIndex: ['stockData', 'change'],
-                    sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.change || 0) - (b.stockData?.change || 0),
-                    render: (change) => ({
-                        props: {
-                            className: classNames({'positive-change': change > 0, 'negative-change': change < 0}),
-                        },
-                        children: change,
-                    }),
-                },
-                {
-                    title: 'Change %',
-                    key: 'changePercent',
-                    width: 80,
-                    dataIndex: ['stockData', 'changePercent'],
-                    sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.changePercent || 0) - (b.stockData?.changePercent || 0),
-                    render: (change) => ({
-                        props: {
-                            className: classNames({'positive-change': change > 0, 'negative-change': change < 0}),
-                        },
-                        children: Math.round(change * 100 * 100) / 100 + '%',
-                    }),
-                },
-            ],
-        };
-
-        const daysGroupColumnGroups: ColumnGroupType<TickerWithSubmissionIdsForEachDay>[] = dayGroupsDesc.map((day, dayIndex) => ({
-            key: IndexPage.formatKey(['days', dayIndex]),
-            title: formatISO(new Date(day), {representation: 'date'}),
-            children: [
-                {
-                    title: 'Total',
-                    className: 'total-column',
-                    width: 80,
-                    key: IndexPage.formatKey([day, 'total']),
-                    dataIndex: ['days', dayIndex],
-                    sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => {
-                        const aSubmissions = a.days[dayIndex].subreddits
-                            .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0);
-                        const bSubmissions = b.days[dayIndex].subreddits
-                            .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0);
-                        return aSubmissions - bSubmissions;
-                    },
-                    render: (currentDay: DayWithSubreddits) => {
-                        const isLastColumn = dayIndex === dayGroupsDesc.length - 1;
-                        const allTickerCountForDay = currentDay.subreddits
-                            .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0);
-                        return this.renderCell(allTickerCountForDay, currentDay.change, currentDay.isChangeFinite, isLastColumn);
-                    },
-                },
-                ...selectedSubreddits.map((subreddit) => {
-                    return {
-                        title: subreddit,
-                        className: 'subreddit-column',
-                        width: 80,
-                        key: IndexPage.formatKey([day, subreddit]),
-                        dataIndex: ['days', dayIndex, 'subreddits'],
-                        sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => {
-                            const aSubmissions = a.days[dayIndex].subreddits.find(x => x.subreddit === subreddit)?.submissionIds.length ?? 0;
-                            const bSubmissions = b.days[dayIndex].subreddits.find(x => x.subreddit === subreddit)?.submissionIds.length ?? 0;
-                            // TODO reset sorting if null
-                            return aSubmissions - bSubmissions;
-                        },
-                        render: (todaysSubreddits: SubredditWithSubmissionIds[]) => {
-                            const isLastColumn = dayIndex === dayGroupsDesc.length - 1;
-                            const currentSubreddit = todaysSubreddits.find(x => x.subreddit === subreddit);
-                            return currentSubreddit && this.renderCell(currentSubreddit.submissionIds.length, currentSubreddit.change, currentSubreddit.isChangeFinite, isLastColumn);
-                        },
-                    };
-                })],
-        } as ColumnGroupType<TickerWithSubmissionIdsForEachDay>));
-
-        const columns: ColumnsType<TickerWithSubmissionIdsForEachDay> = [
-            titleColumn,
-            stockDataColumnGroup,
-            ...daysGroupColumnGroups,
-        ];
-
-        (columns.find(x => x.key === 'days@0') as ColumnGroupType<TickerWithSubmissionIdsForEachDay>).children[0].defaultSortOrder = 'descend';
-
-        return columns;
-    };
-
-    private static formatKey(parts: (string | number)[]): string {
-        return parts.join('@');
-    }
-
-    static renderCell(count: number, change: number, isChangeFinite: boolean, isLastColumn: boolean) {
-        const isPositiveChange = change > 0;
-        const isNegativeChange = change < 0;
-        const changeClassName = classNames(
-            'change',
-            {'positive-change': isPositiveChange, 'negative-change': isNegativeChange}
-        );
-
-        return (
-            <>
-                <span className={'count'}>{count}</span>
-                {!isLastColumn && change !== 0 &&
-                <span
-                    className={changeClassName}>{this.getChangeText(change, isChangeFinite)}
-                </span>
-                }
-            </>
-        )
-    }
-
-    static getChangeText(change: number, isFinite: boolean) {
-        let changePercent;
-        if (isFinite) {
-            changePercent = Math.round(change * 100);
-            if (change > 0) {
-                changePercent = `+${changePercent}`;
-            }
-            changePercent += '%'
-        }
-        else {
-            changePercent = change > 0 ? 'new' : 'none';
-        }
-        return changePercent;
-    }
 }
-
-interface IndexPageProps {
-}
-
-interface IndexPageState {
-    selectedSubreddits: string[];
-    searchText: string;
-    tableDataLoading: boolean;
-    tableColumns: ColumnType<TickerWithSubmissionIdsForEachDay>[];
-    tableRows: TickerWithSubmissionIdsForEachDay[];
-}
-
 
 export interface SubmissionDTO {
     id: string;

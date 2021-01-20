@@ -3,61 +3,53 @@ import {Collapse, Table} from 'antd';
 import * as React from 'react';
 import {SubmissionDTO} from '../../pages/IndexPage';
 import {formatDateFromUnixSeconds} from '../../utilities';
-import {FunctionComponent} from 'react';
+import {FunctionComponent, useMemo} from 'react';
 import classNames from 'classnames';
 import './RSExpandedRow.styles.scss';
 import {ColumnType} from 'antd/es/table';
 import {TickerWithSubmissionIdsForEachDay} from '../../models/TableData';
 
-export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({row, allSubmissions}) => {
-    const submissionGroups: Record<string, SubmissionDTO[]> = {};
-    for (const day of row.days) {
-        for (const subreddit of day.subreddits) {
-            const mappedSubmissions = subreddit.submissionIds.map(id => allSubmissions[id]);
-            if (submissionGroups[subreddit.subreddit]) {
-                submissionGroups[subreddit.subreddit].push(...mappedSubmissions);
-            } else {
-                submissionGroups[subreddit.subreddit] = mappedSubmissions;
-            }
-        }
-    }
-    const submissionGroupsArray = Object
-        .keys(submissionGroups)
-        .map(subreddit => {
-            const submissions = submissionGroups[subreddit];
-            return {subreddit, submissions};
-        })
-        .filter(x => x.submissions.length > 0);
 
-    console.log(row)
-    console.log(submissionGroups)
-    console.log(submissionGroupsArray)
+interface RSExpandedRowProps {
+    calculatedRow: TickerWithSubmissionIdsForEachDay,
+    rawRow: TickerWithSubmissionIdsForEachDay,
+    allSubmissions: Record<string, SubmissionDTO>,
+    selectedSubreddits: Set<string>
+}
+
+export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({calculatedRow, rawRow, allSubmissions, selectedSubreddits}) => {
+
+    const {allSubredditSubmissions, selectedSubredditSubmissions, selectedSubredditSubmissionGroups} = getSubmissionGroups(rawRow, allSubmissions, selectedSubreddits);
 
     return (<div className={'rs-expanded-row'}>
         <div className={'stock-header'}>
             <Title level={4} className={'stock-and-company-title'}>
-                {row.ticker}{row.stockData?.companyName ? ' : ' + row.stockData.companyName : ''}
+                {calculatedRow.ticker}{calculatedRow.stockData?.companyName ? ' : ' + calculatedRow.stockData.companyName : ''}
             </Title>
-            <RSStockLink href={`https://finance.yahoo.com/quote/${row.ticker}`}>Yahoo Finance</RSStockLink>
-            <RSStockLink href={`https://stockanalysis.com/stocks/${row.ticker}`}>Stock Analysis</RSStockLink>
+            <RSStockLink href={`https://finance.yahoo.com/quote/${calculatedRow.ticker}`}>Yahoo Finance</RSStockLink>
+            <RSStockLink href={`https://stockanalysis.com/stocks/${calculatedRow.ticker}`}>Stock Analysis</RSStockLink>
             <RSStockLinkSeparator />
-            <RSStockLink href={`https://www.google.com/search?q=stock+${row.ticker}`}>Google Search Ticker</RSStockLink>
-            <RSStockLink href={`https://www.google.com/search?tbm=nws&q=stock+${row.ticker}`}>Google News Ticker</RSStockLink>
-            {row.stockData &&
+            <RSStockLink href={`https://www.google.com/search?q=stock+${calculatedRow.ticker}`}>Google Search Ticker</RSStockLink>
+            <RSStockLink href={`https://www.google.com/search?tbm=nws&q=stock+${calculatedRow.ticker}`}>Google News Ticker</RSStockLink>
+            {calculatedRow.stockData &&
             <>
-                <RSStockLink href={`https://www.google.com/search?q=${row.stockData.companyName}`}>Google Search Company</RSStockLink>
-                <RSStockLink href={`https://www.google.com/search?tbm=nws&q=${row.stockData.companyName}`}>Google News Company</RSStockLink>
+                <RSStockLink href={`https://www.google.com/search?q=${calculatedRow.stockData.companyName}`}>Google Search Company</RSStockLink>
+                <RSStockLink href={`https://www.google.com/search?tbm=nws&q=${calculatedRow.stockData.companyName}`}>Google News Company</RSStockLink>
             </>
             }
         </div>
 
         <Collapse ghost>
-            <Collapse.Panel key={'all'} header={'All'}>
-                <RSSubmissionTable submissions={Object.values(submissionGroups).flat()} allSubreddits={true}/>
+            <Collapse.Panel key={'all'} header={`All (${allSubredditSubmissions.length})`}>
+                <RSSubmissionTable submissions={allSubredditSubmissions} allSubreddits={true}/>
+            </Collapse.Panel>
+
+            <Collapse.Panel key={'all_selected'} header={`All selected (${selectedSubredditSubmissions.length})`}>
+                <RSSubmissionTable submissions={selectedSubredditSubmissions} allSubreddits={true}/>
             </Collapse.Panel>
 
             {
-                submissionGroupsArray.map(({subreddit, submissions}) => {
+                selectedSubredditSubmissionGroups.map(([subreddit, submissions]) => {
                     return (
                         <Collapse.Panel header={`r/${subreddit} (${submissions.length})`} key={subreddit}>
                             <RSSubmissionTable submissions={submissions} allSubreddits={false}/>
@@ -67,6 +59,37 @@ export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({row, allSu
             }
         </Collapse>
     </div>);
+}
+
+function getSubmissionGroups(rawRow: TickerWithSubmissionIdsForEachDay, allSubmissions: Record<string, SubmissionDTO>, selectedSubreddits: Set<string>) {
+    const allSubredditSubmissions: SubmissionDTO[] = [];
+    const selectedSubredditSubmissions: SubmissionDTO[] = [];
+    const selectedSubredditSubmissionGroups: Map<string, SubmissionDTO[]> = new Map<string, []>();
+    for (const day of rawRow.days) {
+        for (const subreddit of day.subreddits) {
+            const mappedSubmissions = subreddit.submissionIds.map(id => allSubmissions[id]);
+
+            allSubredditSubmissions.push(...mappedSubmissions)
+
+            if (mappedSubmissions.length > 0 && selectedSubreddits.has(subreddit.subreddit)) {
+                selectedSubredditSubmissions.push(...mappedSubmissions);
+
+                const existingSelectedSubredditSubmissionGroup = selectedSubredditSubmissionGroups.get(subreddit.subreddit);
+                if (existingSelectedSubredditSubmissionGroup) {
+                    existingSelectedSubredditSubmissionGroup.push(...mappedSubmissions);
+                }
+                else {
+                    selectedSubredditSubmissionGroups.set(subreddit.subreddit, [...mappedSubmissions]);
+                }
+            }
+        }
+    }
+
+    return {
+        allSubredditSubmissions,
+        selectedSubredditSubmissions,
+        selectedSubredditSubmissionGroups: [...selectedSubredditSubmissionGroups]
+    };
 }
 
 const RSSubmissionTable: FunctionComponent<{ submissions: SubmissionDTO[], allSubreddits: boolean }> = ({ submissions, allSubreddits }) => {
@@ -122,12 +145,6 @@ const RSSubmissionTable: FunctionComponent<{ submissions: SubmissionDTO[], allSu
     />
 
 }
-
-interface RSExpandedRowProps {
-    row: TickerWithSubmissionIdsForEachDay,
-    allSubmissions: Record<string, SubmissionDTO>
-}
-
 
 const RSStockLink: FunctionComponent<{ href: string }> = ({ href, children }) => (
     <a className={'stock-link'} href={href} target="_blank" rel="noreferrer">{children}</a>
