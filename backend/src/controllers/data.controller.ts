@@ -20,7 +20,7 @@ export class DataController {
             return ctx.status = 400;
         }
 
-        const startTimestamp = this.getStartTimestampUtc(days);
+        const startTimestamp = this.getSomeDaysAgoStartOfDayTimestamp(days);
 
         const groupedSubmissionResult = this.db.getGroupedSubmissions(startTimestamp);
         const structuredSubmissions = this.mainDataService.transformToStructuredData(groupedSubmissionResult, new Date(startTimestamp * 1000), config.availableSubreddits);
@@ -32,8 +32,8 @@ export class DataController {
         }
     }
 
-    private getStartTimestampUtc(days: number) {
-        return Math.round(startOfDay(sub(new Date(), {days})).getTime() / 1000) - new Date().getTimezoneOffset() * 60;
+    private getSomeDaysAgoStartOfDayTimestamp(days: number) {
+        return Math.round(startOfDay(sub(new Date(), {days})).getTime() / 1000);
     }
 
     public async getAvailableSubreddits(ctx: Context) {
@@ -47,7 +47,7 @@ export class DataController {
             return ctx.status = 400;
         }
 
-        const startTimestamp = this.getStartTimestampUtc(days);
+        const startTimestamp = this.getSomeDaysAgoStartOfDayTimestamp(days);
 
         const submissions = this.db.getSubmissions(startTimestamp);
         const submissionDtoMap = submissions.reduce((result: Record<string, SubmissionDTO>, submission) => {

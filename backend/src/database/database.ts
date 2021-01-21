@@ -39,7 +39,7 @@ export class Database {
         }
 
         const query = this.db.prepare(`
-            SELECT t.ticker, strftime('%Y-%m-%d', subs.created_utc, 'unixepoch') AS day_group, lower(subs.subreddit) AS subreddit, group_concat(subs.id) AS ids FROM submissions AS subs
+            SELECT t.ticker, strftime('%Y-%m-%d', subs.created_utc, 'unixepoch', 'localtime') AS day_group, lower(subs.subreddit) AS subreddit, group_concat(subs.id) AS ids FROM submissions AS subs
             JOIN submission_has_ticker AS sht ON subs.id = sht.submission_id
             JOIN tickers AS t ON t.ticker = sht.ticker
             WHERE subs.created_utc > @from
