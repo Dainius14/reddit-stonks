@@ -6,6 +6,7 @@ import fakeTickersImport from '../data/fake-tickers.json';
 import {TwelveDataETF, TwelveDataETFFile, TwelveDataStock, TwelveDataStockFile} from '../models/TwelveData';
 import {StockData} from '../controllers/stocks.controller';
 import {GetAllSubmissionsResult} from '../database/database';
+import {DayWithSubredditsDTO, TickerWithSubmissionIdsForEachDayDTO} from '../models/dto';
 
 export class MainDataService {
 
@@ -20,7 +21,7 @@ export class MainDataService {
         (twelveDataEtfs as TwelveDataETFFile).data.forEach(x => this.twelveDataEtfMap.set(x.symbol, x));
     }
 
-    transformToStructuredData(groupedSubmissionResult: GetAllSubmissionsResult[], firstDay: Date, subreddits: string[]): TickerWithSubmissionIdsForEachDay[] {
+    transformToStructuredData(groupedSubmissionResult: GetAllSubmissionsResult[], firstDay: Date, subreddits: string[]): TickerWithSubmissionIdsForEachDayDTO[] {
         const result = this.createStructuredData(groupedSubmissionResult);
         this.fillEmptyDays(result, firstDay);
         this.reverseDaysSorting(result);
@@ -31,13 +32,13 @@ export class MainDataService {
 
 
     private createStructuredData(groupedSubmissionResult: GetAllSubmissionsResult[]) {
-        const result: TickerWithSubmissionIdsForEachDay[] = [];
+        const result: TickerWithSubmissionIdsForEachDayDTO[] = [];
 
         let prevTicker: string = '';
         let prevDayGroup: string = '';
         let prevSubredditGroup: string = '';
-        let currentTickerGroup: TickerWithSubmissionIdsForEachDay;
-        let currentDayGroup: DayWithSubreddits;
+        let currentTickerGroup: TickerWithSubmissionIdsForEachDayDTO;
+        let currentDayGroup: DayWithSubredditsDTO;
         for (let i = 0; i < groupedSubmissionResult.length; i++) {
             const row = groupedSubmissionResult[i];
 
@@ -88,7 +89,7 @@ export class MainDataService {
             .map(date => formatISO(date, {representation: 'date'}));
     }
 
-    fillEmptyDays(tickerGroups: TickerWithSubmissionIdsForEachDay[], firstDay: Date) {
+    fillEmptyDays(tickerGroups: TickerWithSubmissionIdsForEachDayDTO[], firstDay: Date) {
         const dayGroups = this.getDayGroupsAsc(firstDay);
         for (const tickerGroup of tickerGroups) {
 
@@ -107,7 +108,7 @@ export class MainDataService {
     }
 
 
-    fillEmptySubreddits(tickerGroups: TickerWithSubmissionIdsForEachDay[], subreddits: string[]) {
+    fillEmptySubreddits(tickerGroups: TickerWithSubmissionIdsForEachDayDTO[], subreddits: string[]) {
         for (const tickerGroup of tickerGroups) {
             for (const day of tickerGroup.days) {
                 day.subreddits.sort((a, b) => a.subreddit.localeCompare(b.subreddit))
@@ -127,27 +128,9 @@ export class MainDataService {
         }
     }
 
-    private reverseDaysSorting(tickerGroups: TickerWithSubmissionIdsForEachDay[]) {
+    private reverseDaysSorting(tickerGroups: TickerWithSubmissionIdsForEachDayDTO[]) {
         for (const tickerGroup of tickerGroups) {
             tickerGroup.days.reverse();
         }
     }
-}
-
-
-
-interface TickerWithSubmissionIdsForEachDay {
-    ticker: string;
-    stockData?: StockData;
-    days: DayWithSubreddits[];
-}
-
-interface DayWithSubreddits {
-    date: string;
-    subreddits: SubredditWithSubmissionIds[];
-}
-
-interface SubredditWithSubmissionIds {
-    subreddit: string;
-    submissionIds: string[];
 }

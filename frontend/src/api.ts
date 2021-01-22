@@ -1,9 +1,8 @@
-import {StockDataDTO, TickerWithSubmissionIdsForEachDayDTO} from './models/TableData';
-import {SubmissionDTO} from './pages/IndexPage';
+import {MainDataResponseDTO, StockDataResponseDTO, SubmissionDTO} from '../../backend/src/models/dto';
 
 export class RedditStonksApi {
 
-    static async getMainData(days: number): Promise<MainDataResponse> {
+    static async getMainData(days: number): Promise<MainDataResponseDTO> {
         const params = new URLSearchParams({
             days: days.toString()
         });
@@ -27,7 +26,7 @@ export class RedditStonksApi {
         });
     }
 
-    static async getStockData(tickers: string[]): Promise<Record<string, StockDataDTO | null>> {
+    static async getStockData(tickers: string[]): Promise<StockDataResponseDTO> {
         return await this.betterFetch(`/api/stocks/${tickers.join(',')}`, {
             method: 'GET'
         });
@@ -56,10 +55,4 @@ export class RequestError extends Error {
         super(msg);
         this.response = response;
     }
-}
-
-interface MainDataResponse {
-    data: TickerWithSubmissionIdsForEachDayDTO[];
-    updatedAt: string;
-    daysDesc: string[]
 }

@@ -3,10 +3,9 @@ import {Pagination, Table, Tooltip} from 'antd';
 import * as React from 'react';
 import {ColumnGroupType, ColumnsType, ColumnType} from 'antd/es/table';
 import './RSTable.styles.scss';
-import {FunctionComponent, ReactElement, ReactNode, useEffect, useMemo, useState} from 'react';
+import {FunctionComponent, ReactNode, useEffect, useMemo, useState} from 'react';
 import {
     DayWithSubreddits,
-    StockDataDTO,
     SubredditWithSubmissionIds,
     TickerWithSubmissionIdsForEachDay,
 } from '../../models/TableData';
@@ -15,6 +14,7 @@ import {formatISO} from 'date-fns';
 import {calculateData} from '../../helpers/data-calculations';
 import {SortOrder} from 'antd/es/table/interface';
 import {RedditStonksApi} from '../../api';
+import { StockDataDTO, StockDataResponseDTO } from '../../../../backend/src/models/dto';
 
 
 const dayColKey = 'days';
@@ -47,8 +47,8 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
     const [sortKey, setSortKey] = useState<string>(formatKey([dayColKey, 0, 'total']));
     const [sortOrder, setSortOrder] = useState<SortOrder | undefined>('descend');
     const [page, setPage] = useState<number>(0);
-    const [pageSize, setPageSize] = useState<number>(25);
-    const [stockData, setStockData] = useState<Record<string, StockDataDTO | null>>({});
+    const [pageSize, setPageSize] = useState<number>(40);
+    const [stockData, setStockData] = useState<StockDataResponseDTO>({});
 
     const availableColumns = useMemo(() => createColumns(dayGroups, availableSubreddits,
         () => previouslySelectedSubreddits !== selectedSubreddits, stockData), [dayGroups, availableSubreddits, stockData]) ;
@@ -65,9 +65,10 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
 
     useEffect(() => {
         const fetchData = async () => {
-            const tickersNeedingData = rowsForPage.filter(x => !x.stockData).map(x => x.ticker);
-            const res = await RedditStonksApi.getStockData(tickersNeedingData);
-            setStockData(res);
+            if (rowsForPage.length > 0) {
+                const res = await RedditStonksApi.getStockData(rowsForPage.map(x => x.ticker));
+                setStockData(res);
+            }
         }
         updateStockDataInterval = clearInterval(updateStockDataInterval);
         fetchData();
@@ -174,7 +175,7 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
         fixed: 'left',
         width: 80,
         sorter: (a, b) => 0,
-        render: (row: TickerWithSubmissionIdsForEachDay) => <Tooltip title={row.stockData?.companyName}>{row.ticker}</Tooltip>,
+        render: (row: TickerWithSubmissionIdsForEachDay) => <Tooltip title={'???'}>{row.ticker}</Tooltip>,
     };
 
     const stockDataColumnGroup: ColumnGroupType<TickerWithSubmissionIdsForEachDay> = {

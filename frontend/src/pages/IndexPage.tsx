@@ -1,5 +1,5 @@
 import React, {Component, FC} from 'react';
-import {Input, Pagination, Spin, Tooltip} from 'antd';
+import {Input, Spin, Tooltip} from 'antd';
 import {CheckboxValueType} from 'antd/es/checkbox/Group';
 import {RSTable} from '../components/table/RSTable';
 import { RSExpandedRow } from '../components/expanded-row/RSExpandedRow';
@@ -13,7 +13,8 @@ import {
 } from '../models/TableData';
 import {mapFromTickerGroupDtos} from '../helpers/mappers';
 import {formatDate} from '../utilities';
-import {formatDistanceToNow, formatISO, formatRelative, formatRFC3339} from 'date-fns';
+import {formatDistanceToNow} from 'date-fns';
+import { SubmissionDTO } from '../../../backend/src/models/dto';
 
 
 interface IndexPageProps {
@@ -63,7 +64,7 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         try {
             const response = await RedditStonksApi.getMainData(days);
             this.setMainData(mapFromTickerGroupDtos(response.data));
-            this.setMainDataUpdatedAt(new Date(response.updatedAt));
+            this.setMainDataUpdatedAt(new Date(response.lastSubmissionTime));
             this.setAvailableDayGroups(response.daysDesc);
         }
         catch (ex) {
@@ -216,15 +217,4 @@ const FooterLeftSide: FC<FooterLeftSideProps> = ({lastSubmission}) => {
             Last submission scraped {formatDistanceToNow(lastSubmission)} ago
         </Tooltip>
     </>;
-}
-
-export interface SubmissionDTO {
-    id: string;
-    subreddit: string;
-    title: string;
-    created_utc: number;
-    score: number;
-    url: string;
-    is_removed: boolean;
-    author: string;
 }

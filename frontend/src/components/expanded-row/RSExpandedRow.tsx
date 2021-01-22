@@ -1,13 +1,13 @@
 import Title from 'antd/es/typography/Title';
 import {Collapse, Table} from 'antd';
 import * as React from 'react';
-import {SubmissionDTO} from '../../pages/IndexPage';
 import {formatDateFromUnixSeconds} from '../../utilities';
-import {FunctionComponent, useMemo} from 'react';
+import {FunctionComponent} from 'react';
 import classNames from 'classnames';
 import './RSExpandedRow.styles.scss';
 import {ColumnType} from 'antd/es/table';
 import {TickerWithSubmissionIdsForEachDay} from '../../models/TableData';
+import { SubmissionDTO } from '../../../../backend/src/models/dto';
 
 
 interface RSExpandedRowProps {
@@ -24,19 +24,19 @@ export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({calculated
     return (<div className={'rs-expanded-row'}>
         <div className={'stock-header'}>
             <Title level={4} className={'stock-and-company-title'}>
-                {calculatedRow.ticker}{calculatedRow.stockData?.companyName ? ' : ' + calculatedRow.stockData.companyName : ''}
+                {calculatedRow.ticker}
             </Title>
             <RSStockLink href={`https://finance.yahoo.com/quote/${calculatedRow.ticker}`}>Yahoo Finance</RSStockLink>
             <RSStockLink href={`https://stockanalysis.com/stocks/${calculatedRow.ticker}`}>Stock Analysis</RSStockLink>
             <RSStockLinkSeparator />
             <RSStockLink href={`https://www.google.com/search?q=stock+${calculatedRow.ticker}`}>Google Search Ticker</RSStockLink>
             <RSStockLink href={`https://www.google.com/search?tbm=nws&q=stock+${calculatedRow.ticker}`}>Google News Ticker</RSStockLink>
-            {calculatedRow.stockData &&
-            <>
-                <RSStockLink href={`https://www.google.com/search?q=${calculatedRow.stockData.companyName}`}>Google Search Company</RSStockLink>
-                <RSStockLink href={`https://www.google.com/search?tbm=nws&q=${calculatedRow.stockData.companyName}`}>Google News Company</RSStockLink>
-            </>
-            }
+            {/*{calculatedRow.stockData &&*/}
+            {/*<>*/}
+            {/*    <RSStockLink href={`https://www.google.com/search?q=${calculatedRow.stockData.companyName}`}>Google Search Company</RSStockLink>*/}
+            {/*    <RSStockLink href={`https://www.google.com/search?tbm=nws&q=${calculatedRow.stockData.companyName}`}>Google News Company</RSStockLink>*/}
+            {/*</>*/}
+            {/*}*/}
         </div>
 
         <Collapse ghost>

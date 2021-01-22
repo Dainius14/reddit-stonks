@@ -70,7 +70,6 @@ function getChange(currentCount: number, previousCount: number) {
 function filterSelectedSubredditsForGroup(selectedSubreddits: Set<string>, tickerGroup: TickerWithSubmissionIdsForEachDay): TickerWithSubmissionIdsForEachDay {
     return {
         ticker: tickerGroup.ticker,
-        stockData: tickerGroup.stockData,
         days: tickerGroup.days.map(day => ({
             date: day.date,
             subreddits: day.subreddits.filter(sub => selectedSubreddits.has(sub.subreddit)),

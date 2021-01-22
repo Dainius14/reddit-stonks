@@ -3,7 +3,7 @@ import {Database} from '../database/database';
 import {config} from '../config';
 import {startOfDay, sub} from 'date-fns';
 import {MainDataService} from '../services/main-data-service';
-import {SubmissionDTO} from '../models/submission-dto';
+import {MainDataResponseDTO, SubmissionDTO, SubmissionsResponseDTO} from '../models/dto';
 
 export class DataController {
     private db: Database;
@@ -25,11 +25,13 @@ export class DataController {
         const groupedSubmissionResult = this.db.getGroupedSubmissions(startTimestamp);
         const structuredSubmissions = this.mainDataService.transformToStructuredData(groupedSubmissionResult, new Date(startTimestamp * 1000), config.availableSubreddits);
 
+        const lastSubmissionTime = this.db.getLastSubmissionTime() ?? new Date().getTime() / 1000;
+
         ctx.body = {
             data: structuredSubmissions,
-            updatedAt: new Date(this.db.getLastSubmissionTime()! * 1000).toISOString(),
+            lastSubmissionTime: new Date(lastSubmissionTime * 1000).toISOString(),
             daysDesc: this.mainDataService.getDayGroupsAsc(new Date(startTimestamp * 1000)).reverse()
-        }
+        } as MainDataResponseDTO;
     }
 
     private getSomeDaysAgoStartOfDayTimestamp(days: number) {
@@ -63,10 +65,6 @@ export class DataController {
             };
             return result;
         }, {});
-        ctx.body = submissionDtoMap;
-    }
-
-    private convertToIsoDate() {
-
+        ctx.body = submissionDtoMap as SubmissionsResponseDTO;
     }
 }

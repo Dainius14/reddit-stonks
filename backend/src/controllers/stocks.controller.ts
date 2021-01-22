@@ -3,6 +3,7 @@ import IEXCloudClient from 'node-iex-cloud';
 import {config} from '../config';
 import axios from 'axios';
 import Quote from 'node-iex-cloud/lib/types/Quote';
+import {StockDataResponseDTO} from '../models/dto';
 
 export class StocksController {
     private iex: IEXCloudClient;
@@ -59,7 +60,7 @@ export class StocksController {
                 };
             }
             return result;
-        }, {});
+        }, {}) as StockDataResponseDTO;
     }
 }
 

@@ -1,8 +1,8 @@
+import { TickerWithSubmissionIdsForEachDayDTO } from '../../../backend/src/models/dto';
 import {
     DayWithSubreddits,
     SubredditWithSubmissionIds,
     TickerWithSubmissionIdsForEachDay,
-    TickerWithSubmissionIdsForEachDayDTO,
 } from '../models/TableData';
 
 export function mapFromTickerGroupDtos(tickerGroups: TickerWithSubmissionIdsForEachDayDTO[]) {
