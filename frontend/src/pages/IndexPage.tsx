@@ -1,5 +1,5 @@
-import React, {Component} from 'react';
-import {Input, Spin} from 'antd';
+import React, {Component, FC} from 'react';
+import {Input, Pagination, Spin, Tooltip} from 'antd';
 import {CheckboxValueType} from 'antd/es/checkbox/Group';
 import {RSTable} from '../components/table/RSTable';
 import { RSExpandedRow } from '../components/expanded-row/RSExpandedRow';
@@ -12,12 +12,15 @@ import {
     TickerWithSubmissionIdsForEachDay,
 } from '../models/TableData';
 import {mapFromTickerGroupDtos} from '../helpers/mappers';
+import {formatDate} from '../utilities';
+import {formatDistanceToNow, formatISO, formatRelative, formatRFC3339} from 'date-fns';
 
 
 interface IndexPageProps {
 }
 
 interface IndexPageState {
+    headerHeight: number;
     availableSubreddits: string[];
     availableDayGroups: string[];
     selectedSubreddits: Set<string>;
@@ -30,6 +33,7 @@ interface IndexPageState {
 export class IndexPage extends Component<IndexPageProps, IndexPageState> {
 
     readonly state: IndexPageState = {
+        headerHeight: 0,
         availableSubreddits: [],
         availableDayGroups: [],
         selectedSubreddits: new Set<string>(),
@@ -50,6 +54,9 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         ]);
 
         this.setTableDataLoading(false);
+
+        this.setHeaderHeight(document.querySelector('.rs-index-header')!.clientHeight);
+        window.addEventListener('resize', () => this.setHeaderHeight(document.querySelector('.rs-index-header')!.clientHeight));
     }
 
     private async loadTableData(days: number) {
@@ -129,16 +136,20 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
                     dayGroups={this.state.availableDayGroups}
                     availableSubreddits={this.state.availableSubreddits}
                     selectedSubreddits={this.state.selectedSubreddits}
-                    dataUpdatedAt={this.state.mainDataUpdatedAt}
                     data={this.state.mainData}
-                    onChange={(a, b, c, d) => null}
+                    pageHeaderHeight={this.state.headerHeight}
+                    onChange={(a, b, c, d) => console.log(a, b, c, d)}
                     onExpandedRowRender={(calculatedRow) => <RSExpandedRow
                         allSubmissions={this.submissions}
                         calculatedRow={calculatedRow}
                         rawRow={this.state.mainData.find(x => x.ticker === calculatedRow.ticker)!}
                         selectedSubreddits={this.state.selectedSubreddits}
                     />}
-                />
+                >
+                    {{
+                        footerLeftSide: <FooterLeftSide lastSubmission={this.state.mainDataUpdatedAt!}/>
+                    }}
+                </RSTable>
             }
         </>);
     }
@@ -187,6 +198,24 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         }));
     }
 
+    private setHeaderHeight(value: number) {
+        this.setState(() => ({
+            headerHeight: value,
+        }));
+    }
+
+}
+
+interface FooterLeftSideProps {
+    lastSubmission: Date;
+}
+
+const FooterLeftSide: FC<FooterLeftSideProps> = ({lastSubmission}) => {
+    return <>
+        <Tooltip title={formatDate(lastSubmission, true)}>
+            Last submission scraped {formatDistanceToNow(lastSubmission)} ago
+        </Tooltip>
+    </>;
 }
 
 export interface SubmissionDTO {

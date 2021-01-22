@@ -1,29 +1,50 @@
-.change {
-    font-size: 60%;
-    margin-left: 1ch;
+.rs-main-data-table {
+    .change {
+        font-size: 60%;
+        margin-left: 1ch;
+    }
+
+    .negative-change {
+        color: darkred;
+    }
+
+    .positive-change {
+        color: green;
+    }
+
+    .total-column .count {
+        font-weight: bold;
+    }
+
+    th.subreddit-column .ant-table-column-sorters > span:not(.ant-table-column-sorter ) {
+        writing-mode: vertical-lr;
+        transform: rotate(-160deg);
+    }
+
+    .odd-row > td {
+        background: #f8f8f8;
+    }
 }
 
-.negative-change {
-    color: darkred;
+.rs-main-data-table-footer {
+    display: flex;
+    flex-direction: row;
+    margin: 1px 5px;
+
+    .rs-main-data-table-pagination {
+        margin-left: auto;
+    }
 }
 
-.positive-change {
-    color: green;
-}
+.rs-main-data-table-pagination {
 
-.total-column .count {
-    font-weight: bold;
-}
+    // Last updated align to the left
+    .ant-pagination-total-text {
+        margin-right: auto;
+    }
 
-th.subreddit-column .ant-table-column-sorters > span:not(.ant-table-column-sorter ) {
-    writing-mode: vertical-lr;
-    transform: rotate(-160deg);
-}
-
-.odd-row > td {
-    background: #f8f8f8;
-}
-
-.subreddit-column-hidden {
-    display: none;
+    .updated-at {
+        padding-left: 2px;
+        font-size: 12px;
+    }
 }

@@ -1,7 +1,7 @@
 import {format} from 'date-fns';
 
-export function formatDate(date: Date) {
-    return format(date, 'yyyy-MM-dd HH:mm');
+export function formatDate(date: Date, withSeconds: boolean = false) {
+    return format(date, 'yyyy-MM-dd HH:mm' + (withSeconds ? ':ss' : ''));
 }
 
 export function formatDateFromUnixSeconds(seconds: number) {
