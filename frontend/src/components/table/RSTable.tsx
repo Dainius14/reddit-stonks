@@ -215,7 +215,7 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
                 dataIndex: ['ticker'],
                 // sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.changePercent || 0) - (b.stockData?.changePercent || 0),
                 render: (ticker: string) => {
-                    const changePercent = stockData[ticker]?.change ?? 0;
+                    const changePercent = stockData[ticker]?.changePercent ?? 0;
                     return ({
                         props: {
                             className: classNames({'positive-change': changePercent > 0, 'negative-change': changePercent < 0}),
