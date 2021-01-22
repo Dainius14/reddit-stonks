@@ -1,4 +1,4 @@
-import {TickerWithSubmissionIdsForEachDayDTO} from './models/TableData';
+import {StockDataDTO, TickerWithSubmissionIdsForEachDayDTO} from './models/TableData';
 import {SubmissionDTO} from './pages/IndexPage';
 
 export class RedditStonksApi {
@@ -27,6 +27,12 @@ export class RedditStonksApi {
         });
     }
 
+    static async getStockData(tickers: string[]): Promise<Record<string, StockDataDTO | null>> {
+        return await this.betterFetch(`/api/stocks/${tickers.join(',')}`, {
+            method: 'GET'
+        });
+    }
+
 
     private static async betterFetch(input: string, init: RequestInit): Promise<any> {
         const response = await fetch(input, init);
@@ -36,6 +42,10 @@ export class RedditStonksApi {
         else {
             throw new RequestError(`${response.status} ${response.statusText}`, response);
         }
+    }
+
+    private static unescapeEscapedCommas(str: string) {
+        return str.replaceAll('%2C', ',');
     }
 }
 

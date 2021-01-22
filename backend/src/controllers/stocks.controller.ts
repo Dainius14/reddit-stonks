@@ -16,16 +16,30 @@ export class StocksController {
 
     public async getInfo(ctx: Context) {
         const tickers = (ctx.params.ticker as string).split(',');
-        if (tickers.length > 10) {
-            ctx.status = 400;
-            return;
-        }
 
-        const quotes = await this.iex
-            .batchSymbols(tickers.join(','))
-            .batch()
-            .quote()
-            .range()
+        const tickerGroups = tickers.reduce((result: string[][], ticker) => {
+            const currentGroup = result[result.length - 1];
+            if (currentGroup.length < 10) {
+                currentGroup.push(ticker);
+            }
+            else {
+                result.push([ticker])
+            }
+            return result;
+        }, [[]])
+
+        const quoteBatches = tickerGroups.map(group => {
+            return this.iex
+                .batchSymbols(group.join(','))
+                .batch()
+                .quote()
+                .range()
+        });
+
+        const quoteGroups = await Promise.all(quoteBatches);
+
+        const quotes = quoteGroups.reduce((result: Record<string, any>, currentGroup) => ({...result, ...currentGroup}), {});
+
 
         ctx.body = tickers.reduce((result: Record<string, StockData | null>, ticker) => {
             const quote = quotes[ticker]?.quote as Quote;

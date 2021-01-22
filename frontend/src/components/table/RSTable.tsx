@@ -4,13 +4,21 @@ import * as React from 'react';
 import {ColumnGroupType, ColumnsType, ColumnType} from 'antd/es/table';
 import './RSTable.styles.scss';
 import {FunctionComponent, ReactElement, ReactNode, useEffect, useMemo, useState} from 'react';
-import {DayWithSubreddits, SubredditWithSubmissionIds, TickerWithSubmissionIdsForEachDay} from '../../models/TableData';
+import {
+    DayWithSubreddits,
+    StockDataDTO,
+    SubredditWithSubmissionIds,
+    TickerWithSubmissionIdsForEachDay,
+} from '../../models/TableData';
 import {Key, SorterResult, TableCurrentDataSource, TablePaginationConfig} from 'antd/lib/table/interface';
 import {formatISO} from 'date-fns';
 import {calculateData} from '../../helpers/data-calculations';
 import {SortOrder} from 'antd/es/table/interface';
+import {RedditStonksApi} from '../../api';
+
 
 const dayColKey = 'days';
+const stockDataRefreshTimeSeconds = 10;
 
 interface RSTableProps {
     searchText: string;
@@ -28,6 +36,7 @@ interface RSTableProps {
 }
 
 let previouslySelectedSubreddits: Set<string> = new Set<string>();
+let updateStockDataInterval: any;
 
 export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups, availableSubreddits, selectedSubreddits, data, onExpandedRowRender,
                                                              onChange, pageHeaderHeight, children}) => {
@@ -39,8 +48,10 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
     const [sortOrder, setSortOrder] = useState<SortOrder | undefined>('descend');
     const [page, setPage] = useState<number>(0);
     const [pageSize, setPageSize] = useState<number>(25);
+    const [stockData, setStockData] = useState<Record<string, StockDataDTO | null>>({});
 
-    const availableColumns = useMemo(() => createColumns(dayGroups, availableSubreddits, () => previouslySelectedSubreddits !== selectedSubreddits), [dayGroups, availableSubreddits]) ;
+    const availableColumns = useMemo(() => createColumns(dayGroups, availableSubreddits,
+        () => previouslySelectedSubreddits !== selectedSubreddits, stockData), [dayGroups, availableSubreddits, stockData]) ;
     const filteredColumns = useMemo(() => filterColumns(availableColumns, selectedSubreddits), [availableColumns, selectedSubreddits]);
 
     const calculatedRows = useMemo(() => calculateData(data, selectedSubreddits), [data, selectedSubreddits]);
@@ -50,6 +61,19 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
 
 
     const rowsForPage = sortedRows.slice(page * pageSize, page * pageSize + pageSize);
+
+
+    useEffect(() => {
+        const fetchData = async () => {
+            const tickersNeedingData = rowsForPage.filter(x => !x.stockData).map(x => x.ticker);
+            const res = await RedditStonksApi.getStockData(tickersNeedingData);
+            setStockData(res);
+        }
+        updateStockDataInterval = clearInterval(updateStockDataInterval);
+        fetchData();
+        updateStockDataInterval = setInterval(() => fetchData(), stockDataRefreshTimeSeconds * 1000);
+    }, [page, pageSize, sortKey, sortOrder, searchText])
+
     const totalRows = sortedRows.length;
 
     previouslySelectedSubreddits = selectedSubreddits;
@@ -142,7 +166,8 @@ function filterDataOnSearchText(rows: TickerWithSubmissionIdsForEachDay[], searc
         : rows;
 }
 
-function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], shouldDayGroupsTotalColumnUpdateFn: () => boolean): ColumnType<TickerWithSubmissionIdsForEachDay>[] {
+function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], shouldDayGroupsTotalColumnUpdateFn: () => boolean,
+                       stockData: Record<string, StockDataDTO | null>): ColumnType<TickerWithSubmissionIdsForEachDay>[] {
     const titleColumn: ColumnType<TickerWithSubmissionIdsForEachDay> = {
         title: 'Ticker',
         key: 'ticker',
@@ -161,34 +186,43 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
                 title: 'Price',
                 key: 'price',
                 width: 80,
-                dataIndex: ['stockData', 'latestPrice'],
+                dataIndex: ['ticker'],
                 // sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.latestPrice || 0) - (b.stockData?.latestPrice || 0),
+                render: function (ticker: string) {
+                    return stockData[ticker]?.latestPrice;
+                },
             },
             {
                 title: 'Change',
                 key: 'change',
                 width: 80,
-                dataIndex: ['stockData', 'change'],
+                dataIndex: ['ticker'],
                 // sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.change || 0) - (b.stockData?.change || 0),
-                render: (change) => ({
-                    props: {
-                        className: classNames({'positive-change': change > 0, 'negative-change': change < 0}),
-                    },
-                    children: change,
-                }),
+                render: (ticker: string) => {
+                    const change = stockData[ticker]?.change ?? 0;
+                    return ({
+                        props: {
+                            className: classNames({'positive-change': change > 0, 'negative-change': change < 0}),
+                        },
+                        children: change,
+                    });
+                },
             },
             {
                 title: 'Change %',
                 key: 'changePercent',
                 width: 80,
-                dataIndex: ['stockData', 'changePercent'],
+                dataIndex: ['ticker'],
                 // sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.changePercent || 0) - (b.stockData?.changePercent || 0),
-                render: (change) => ({
-                    props: {
-                        className: classNames({'positive-change': change > 0, 'negative-change': change < 0}),
-                    },
-                    children: Math.round(change * 100 * 100) / 100 + '%',
-                }),
+                render: (ticker: string) => {
+                    const changePercent = stockData[ticker]?.change ?? 0;
+                    return ({
+                        props: {
+                            className: classNames({'positive-change': changePercent > 0, 'negative-change': changePercent < 0}),
+                        },
+                        children: changePercent !== 0 ? Math.round(changePercent * 100 * 100) / 100 + '%' : '-',
+                    });
+                },
             },
         ],
     };
