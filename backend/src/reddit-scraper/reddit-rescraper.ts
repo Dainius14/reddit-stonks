@@ -42,6 +42,8 @@ class RedditRescraper {
             console.log(`Updated ${updated} of ${submissions.length}`);
         }
 
+        this.db.setSubmissionsUpdated(Math.round(new Date().getTime() / 1000));
+
         const end = performance.now();
         const elapsedSeconds = Math.round((end - start) / 1000);
         const {minutes, seconds} = secondsInMinutesAndSeconds(elapsedSeconds);

@@ -126,7 +126,7 @@ export class Database {
         const query = this.db.prepare(`
             UPDATE meta
                SET submissions_updated_utc = @utc
-             WHERE id = @id
+             WHERE id = 0
         `);
         query.run({utc});
     }
