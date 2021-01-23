@@ -223,8 +223,8 @@ const FooterLeftSide: FC<FooterLeftSideProps> = ({lastSubmission, submissionsUpd
         <Tooltip title={formatDate(lastSubmission, true)}>
             Last submission scraped {formatDistanceToNow(lastSubmission)} ago
         </Tooltip>
-        <Tooltip title={formatDate(lastSubmission, true)}>
-            submission scores updated {formatDistanceToNow(submissionsUpdated)} ago
+        <Tooltip title={formatDate(submissionsUpdated, true)}>
+            , submission scores updated {formatDistanceToNow(submissionsUpdated)} ago
         </Tooltip>
     </>;
 }

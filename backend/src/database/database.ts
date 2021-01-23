@@ -148,6 +148,20 @@ export class Database {
             return insertCount;
         })(items);
     }
+
+    public getTickerCurrencies(tickers: string[]) {
+        const query = this.db.prepare(`
+            SELECT ticker, currency
+            FROM tickers
+            WHERE ticker IN (${tickers.map(x => '?').join(',')})
+        `);
+
+        return (query.all(tickers) as { ticker: string, currency: string }[])
+            .reduce((res: Record<string, string>, x) => {
+                res[x.ticker] = x.currency
+                return res;
+            }, {});
+    }
 }
 
 export interface GetAllSubmissionsResult {

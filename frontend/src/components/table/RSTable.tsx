@@ -41,6 +41,7 @@ let updateStockDataInterval: any;
 export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups, availableSubreddits, selectedSubreddits, data, onExpandedRowRender,
                                                              onChange, pageHeaderHeight, children}) => {
 
+    console.log(document.querySelector('.rs-main-data-table .ant-table-header')?.clientHeight)
     useEffect(() => setTableHeaderHeight(document.querySelector('.rs-main-data-table .ant-table-header')!.clientHeight), [selectedSubreddits]);
 
     const [tableHeaderHeight, setTableHeaderHeight] = useState<number>(0);
@@ -48,7 +49,6 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
     const [sortOrder, setSortOrder] = useState<SortOrder | undefined>('descend');
     const [page, setPage] = useState<number>(0);
     const [pageSize, setPageSize] = useState<number>(40);
-    const [prevStockData, setPrevStockData] = useState<StockDataResponseDTO>({});
     const [stockData, setStockData] = useState<StockDataResponseDTO>({});
 
     const availableColumns = useMemo(() => createColumns(dayGroups, availableSubreddits,
@@ -69,7 +69,6 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
             if (rowsForPage.length > 0) {
                 try {
                     const res = await RedditStonksApi.getStockData(rowsForPage.map(x => x.ticker));
-                    setPrevStockData(stockData);
                     setStockData(res);
                 }
                 catch (e) {
@@ -185,58 +184,31 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
         render: (row: TickerWithSubmissionIdsForEachDay) => <Tooltip title={row.tickerName}>{row.ticker}</Tooltip>,
     };
 
-    const stockDataColumnGroup: ColumnGroupType<TickerWithSubmissionIdsForEachDay> = {
-        key: 'stockData',
-        title: 'Stock data',
-        fixed: 'left',
-        children: [
-            {
-                title: 'Price',
-                key: 'price',
-                width: 80,
-                dataIndex: ['ticker'],
-                // sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.latestPrice || 0) - (b.stockData?.latestPrice || 0),
-                render: (ticker: string) => ({
-                    // props: {
-                    //     className: classNames({'flash-increase': }),
-                    // },
-                    children: stockData[ticker]?.latestPrice,
-                })
-            },
-            {
-                title: 'Change',
-                key: 'change',
-                width: 80,
-                dataIndex: ['ticker'],
-                // sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.change || 0) - (b.stockData?.change || 0),
-                render: (ticker: string) => {
-                    const change = stockData[ticker]?.change ?? 0;
-                    return ({
-                        props: {
-                            className: classNames({'positive-change': change > 0, 'negative-change': change < 0}),
-                        },
-                        children: change,
-                    });
-                },
-            },
-            {
-                title: 'Change %',
-                key: 'changePercent',
-                width: 80,
-                dataIndex: ['ticker'],
-                // sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.changePercent || 0) - (b.stockData?.changePercent || 0),
-                render: (ticker: string) => {
-                    const changePercent = stockData[ticker]?.changePercent ?? 0;
-                    return ({
-                        props: {
-                            className: classNames({'positive-change': changePercent > 0, 'negative-change': changePercent < 0}),
-                        },
-                        children: changePercent !== 0 ? Math.round(changePercent * 100 * 100) / 100 + '%' : '-',
-                    });
-                },
-            },
-        ],
-    };
+    const stockDataColumnGroup: ColumnType<TickerWithSubmissionIdsForEachDay> =
+        {
+            title: 'Price',
+            key: 'price',
+            width: 140,
+            dataIndex: ['ticker'],
+            render: (ticker: string) => {
+                const stock = stockData[ticker];
+                if (!stock) return null;
+
+                const changeClassName = classNames(
+                    'change',
+                    {'positive-change': stock.change > 0, 'negative-change': stock.change < 0}
+                );
+
+                return (
+                    <>
+                        <span className={'price'}>{stock.latestPrice} {stock.currency}</span>
+                        <span className={changeClassName}>
+                                {stock.change} ({Math.round(stock.changePercent * 100 * 100) / 100} %)
+                            </span>
+                    </>
+                )
+            }
+        };
 
     const daysGroupColumnGroups: ColumnGroupType<TickerWithSubmissionIdsForEachDay>[] = dayGroupsDesc.map((day, dayIndex) => ({
         key: formatKey([dayColKey, dayIndex]),
@@ -306,8 +278,8 @@ function renderCell(count: number, change: number, isChangeFinite: boolean, isLa
         <>
             <span className={'count'}>{count}</span>
             {!isLastColumn && change !== 0 &&
-            <span
-                className={changeClassName}>{getChangeText(change, isChangeFinite)}
+                <span
+                    className={changeClassName}>{getChangeText(change, isChangeFinite)}
                 </span>
             }
         </>
@@ -359,4 +331,11 @@ function getChangeText(change: number, isFinite: boolean) {
         changePercent = change > 0 ? 'new' : 'none';
     }
     return changePercent;
+}
+
+interface StockCellFlashings extends Record<string, StockCellFlashing> {}
+
+interface StockCellFlashing {
+    price: string;
+    change: string;
 }

@@ -41,7 +41,6 @@ export interface StockDataResponseDTO {
 }
 
 export interface StockDataDTO {
-    companyName: string;
     latestPrice: number;
     change: number;
     changePercent: number;
@@ -49,4 +48,5 @@ export interface StockDataDTO {
     high: number;
     open: number;
     close: number;
+    currency: string;
 }
