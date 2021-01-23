@@ -41,7 +41,6 @@ let updateStockDataInterval: any;
 export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups, availableSubreddits, selectedSubreddits, data, onExpandedRowRender,
                                                              onChange, pageHeaderHeight, children}) => {
 
-    console.log(document.querySelector('.rs-main-data-table .ant-table-header')?.clientHeight)
     useEffect(() => setTableHeaderHeight(document.querySelector('.rs-main-data-table .ant-table-header')!.clientHeight), [selectedSubreddits]);
 
     const [tableHeaderHeight, setTableHeaderHeight] = useState<number>(0);

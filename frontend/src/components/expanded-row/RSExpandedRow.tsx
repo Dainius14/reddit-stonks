@@ -2,22 +2,25 @@ import Title from 'antd/es/typography/Title';
 import {Collapse, Table} from 'antd';
 import * as React from 'react';
 import {formatDateFromUnixSeconds} from '../../utilities';
-import {FunctionComponent} from 'react';
+import {FunctionComponent, useState} from 'react';
 import classNames from 'classnames';
 import './RSExpandedRow.styles.scss';
 import {ColumnType} from 'antd/es/table';
 import {TickerWithSubmissionIdsForEachDay} from '../../models/TableData';
-import { SubmissionDTO } from '../../../../backend/src/models/dto';
+import {NewsDTO, SubmissionDTO } from '../../../../backend/src/models/dto';
 
 
 interface RSExpandedRowProps {
     calculatedRow: TickerWithSubmissionIdsForEachDay,
     rawRow: TickerWithSubmissionIdsForEachDay,
     allSubmissions: Record<string, SubmissionDTO>,
-    selectedSubreddits: Set<string>
+    selectedSubreddits: Set<string>,
+    news: NewsDTO[] | undefined;
+    newsExpanded: () => void;
 }
 
-export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({calculatedRow, rawRow, allSubmissions, selectedSubreddits}) => {
+export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({calculatedRow, rawRow, allSubmissions,
+     selectedSubreddits, news, newsExpanded}) => {
 
     const {allSubredditSubmissions, selectedSubredditSubmissions, selectedSubredditSubmissionGroups} = getSubmissionGroups(rawRow, allSubmissions, selectedSubreddits);
 
@@ -39,12 +42,16 @@ export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({calculated
             }
         </div>
 
-        <Collapse ghost>
-            <Collapse.Panel key={'all'} header={`All (${allSubredditSubmissions.length})`}>
+        <Collapse ghost onChange={(panel) => panel.includes('news') && newsExpanded()}>
+            <Collapse.Panel key={'news'} header={`News`}>
+                <RSNewsTable news={news}/>
+            </Collapse.Panel>
+
+            <Collapse.Panel key={'all_subreddits'} header={`All subreddits (${allSubredditSubmissions.length})`}>
                 <RSSubmissionTable submissions={allSubredditSubmissions} allSubreddits={true}/>
             </Collapse.Panel>
 
-            <Collapse.Panel key={'all_selected'} header={`All selected (${selectedSubredditSubmissions.length})`}>
+            <Collapse.Panel key={'selected_subreddits'} header={`Selected subreddits (${selectedSubredditSubmissions.length})`}>
                 <RSSubmissionTable submissions={selectedSubredditSubmissions} allSubreddits={true}/>
             </Collapse.Panel>
 
@@ -113,6 +120,7 @@ const RSSubmissionTable: FunctionComponent<{ submissions: SubmissionDTO[], allSu
         {
             key: 'author',
             title: 'Author',
+            width: 150,
             sortDirections: ['ascend', 'descend', 'ascend'],
             sorter: (a: SubmissionDTO, b: SubmissionDTO) => a.author.localeCompare(b.author),
             render: (submission: SubmissionDTO) => <RSAuthorLink submission={submission}/>
@@ -129,6 +137,7 @@ const RSSubmissionTable: FunctionComponent<{ submissions: SubmissionDTO[], allSu
         columns.splice(1, 0, {
             key: 'subreddit',
             title: 'Subreddit',
+            width: 160,
             dataIndex: 'subreddit',
             sortDirections: ['ascend', 'descend', 'ascend'],
             sorter: (a: SubmissionDTO, b: SubmissionDTO) => a.subreddit.localeCompare(b.subreddit),
@@ -142,6 +151,44 @@ const RSSubmissionTable: FunctionComponent<{ submissions: SubmissionDTO[], allSu
         sortDirections={['descend', 'ascend', 'descend']}
         dataSource={submissions}
         columns={columns}
+    />
+
+}
+
+const RSNewsTable: FunctionComponent<{ news: NewsDTO[] | undefined }> = ({news}) => {
+    const columns: ColumnType<NewsDTO>[] = [
+        {
+            key: 'datetime',
+            dataIndex: 'datetime',
+            title: 'Date',
+            width: 150,
+            defaultSortOrder: 'descend',
+            render: (created: number) => formatDateFromUnixSeconds(created),
+            sorter: (a: NewsDTO, b: NewsDTO) => a.datetime - b.datetime
+        },
+        {
+            key: 'source',
+            dataIndex: 'source',
+            title: 'Source',
+            width: 150,
+            sorter: (a: NewsDTO, b: NewsDTO) => a.source.localeCompare(b.source)
+
+        },
+        {
+            key: 'headline',
+            title: 'Headline',
+            sorter: (a: NewsDTO, b: NewsDTO) => a.headline.localeCompare(b.headline),
+            render: (news: NewsDTO) => <a href={news.url} target="_blank" rel="noreferrer">{news.headline}</a>,
+        },
+    ];
+
+    return <Table
+        className={'extra-small'}
+        rowKey={'id'}
+        size={'small'}
+        dataSource={news}
+        columns={columns}
+        loading={!news}
     />
 
 }

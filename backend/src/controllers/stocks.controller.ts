@@ -1,5 +1,5 @@
 import {Context} from 'koa';
-import {StockDataDTO, StockDataResponseDTO} from '../models/dto';
+import {NewsDTO, NewsResponseDTO, StockDataDTO, StockDataResponseDTO} from '../models/dto';
 import {IexCloudApi} from '../services/iex-cloud-api';
 import {Database} from '../database/database';
 import {config} from '../config';
@@ -41,6 +41,18 @@ export class StocksController {
             }
             return result;
         }, {}) as StockDataResponseDTO;
+    }
+
+    public async getNews(ctx: Context) {
+        const ticker = (ctx.params.ticker as string);
+        const news = await this.iex.getNews(ticker);
+
+        ctx.body = news.filter(x => x.lang === 'en').map(x => ({
+            datetime: Math.round(x.datetime as unknown as number / 1000),
+            headline: x.headline,
+            source: x.source,
+            url: x.url
+        } as NewsDTO)) as NewsResponseDTO;
     }
 }
 

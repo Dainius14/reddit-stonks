@@ -14,7 +14,7 @@ import {
 import {mapFromTickerGroupDtos} from '../helpers/mappers';
 import {formatDate} from '../utilities';
 import {formatDistanceToNow} from 'date-fns';
-import { SubmissionDTO } from '../../../backend/src/models/dto';
+import {NewsDTO, SubmissionDTO } from '../../../backend/src/models/dto';
 
 
 interface IndexPageProps {
@@ -30,6 +30,7 @@ interface IndexPageState {
     submissionsUpdatedAt?: Date;
     searchText: string;
     tableDataLoading: boolean;
+    news: Record<string, NewsDTO[]>;
 }
 
 export class IndexPage extends Component<IndexPageProps, IndexPageState> {
@@ -44,6 +45,7 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         submissionsUpdatedAt: undefined,
         searchText: '',
         tableDataLoading: true,
+        news: {}
     };
 
     private submissions: Record<string, SubmissionDTO> = {};
@@ -147,6 +149,8 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
                         calculatedRow={calculatedRow}
                         rawRow={this.state.mainData.find(x => x.ticker === calculatedRow.ticker)!}
                         selectedSubreddits={this.state.selectedSubreddits}
+                        news={this.state.news[calculatedRow.ticker]}
+                        newsExpanded={async () => await this.onNewsExpanded(calculatedRow.ticker)}
                     />}
                 >
                     {{
@@ -211,6 +215,16 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         }));
     }
 
+    private async onNewsExpanded(ticker: string) {
+        if (this.state.news[ticker]) {
+            return;
+        }
+
+        const news = await RedditStonksApi.getNews(ticker);
+        this.setState((prevState) => ({
+            news: {...news, [ticker]: news}
+        }));
+    }
 }
 
 interface FooterLeftSideProps {

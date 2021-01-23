@@ -46,6 +46,12 @@ export class RedditStonksApi {
     private static unescapeEscapedCommas(str: string) {
         return str.replaceAll('%2C', ',');
     }
+
+    public static async getNews(ticker: string) {
+        return await this.betterFetch(`/api/stocks/${ticker}/news`, {
+            method: 'GET'
+        });
+    }
 }
 
 export class RequestError extends Error {

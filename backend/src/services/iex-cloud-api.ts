@@ -57,6 +57,10 @@ export class IexCloudApi {
             return result;
         }, {})
     }
+
+    async getNews(ticker: string) {
+        return await this.iex.symbol(ticker).news(50);
+    }
 }
 
 export type Quotes = Record<string, Quote | null>;

@@ -50,3 +50,14 @@ export interface StockDataDTO {
     close: number;
     currency: string;
 }
+
+
+export interface NewsResponseDTO extends Array<NewsDTO> {
+}
+
+export interface NewsDTO {
+    datetime: number;
+    headline: string;
+    source: string;
+    url: string;
+}
