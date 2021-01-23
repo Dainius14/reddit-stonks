@@ -4,6 +4,7 @@ import {config} from '../config';
 import {startOfDay, sub} from 'date-fns';
 import {MainDataService} from '../services/main-data-service';
 import {MainDataResponseDTO, SubmissionDTO, SubmissionsResponseDTO} from '../models/dto';
+import {getSomeDaysAgoStartOfDayTimestamp} from '../utils';
 
 export class DataController {
     private db: Database;
@@ -20,7 +21,7 @@ export class DataController {
             return ctx.status = 400;
         }
 
-        const startTimestamp = this.getSomeDaysAgoStartOfDayTimestamp(days);
+        const startTimestamp = getSomeDaysAgoStartOfDayTimestamp(days);
 
         const groupedSubmissionResult = this.db.getGroupedSubmissions(startTimestamp);
         const structuredSubmissions = this.mainDataService.transformToStructuredData(groupedSubmissionResult, new Date(startTimestamp * 1000), config.availableSubreddits);
@@ -30,12 +31,9 @@ export class DataController {
         ctx.body = {
             data: structuredSubmissions,
             lastSubmissionTime: new Date(lastSubmissionTime * 1000).toISOString(),
+            submissionsUpdated: new Date(this.db.getSubmissionsUpdated() * 1000).toISOString(),
             daysDesc: this.mainDataService.getDayGroupsAsc(new Date(startTimestamp * 1000)).reverse()
         } as MainDataResponseDTO;
-    }
-
-    private getSomeDaysAgoStartOfDayTimestamp(days: number) {
-        return Math.round(startOfDay(sub(new Date(), {days})).getTime() / 1000);
     }
 
     public async getAvailableSubreddits(ctx: Context) {
@@ -49,7 +47,7 @@ export class DataController {
             return ctx.status = 400;
         }
 
-        const startTimestamp = this.getSomeDaysAgoStartOfDayTimestamp(days);
+        const startTimestamp = getSomeDaysAgoStartOfDayTimestamp(days);
 
         const submissions = this.db.getSubmissions(startTimestamp);
         const submissionDtoMap = submissions.reduce((result: Record<string, SubmissionDTO>, submission) => {

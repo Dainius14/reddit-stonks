@@ -48,6 +48,7 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
     const [sortOrder, setSortOrder] = useState<SortOrder | undefined>('descend');
     const [page, setPage] = useState<number>(0);
     const [pageSize, setPageSize] = useState<number>(40);
+    const [prevStockData, setPrevStockData] = useState<StockDataResponseDTO>({});
     const [stockData, setStockData] = useState<StockDataResponseDTO>({});
 
     const availableColumns = useMemo(() => createColumns(dayGroups, availableSubreddits,
@@ -66,8 +67,14 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
     useEffect(() => {
         const fetchData = async () => {
             if (rowsForPage.length > 0) {
-                const res = await RedditStonksApi.getStockData(rowsForPage.map(x => x.ticker));
-                setStockData(res);
+                try {
+                    const res = await RedditStonksApi.getStockData(rowsForPage.map(x => x.ticker));
+                    setPrevStockData(stockData);
+                    setStockData(res);
+                }
+                catch (e) {
+                    console.error(e);
+                }
             }
         }
         updateStockDataInterval = clearInterval(updateStockDataInterval);
@@ -175,7 +182,7 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
         fixed: 'left',
         width: 80,
         sorter: (a, b) => 0,
-        render: (row: TickerWithSubmissionIdsForEachDay) => <Tooltip title={'???'}>{row.ticker}</Tooltip>,
+        render: (row: TickerWithSubmissionIdsForEachDay) => <Tooltip title={row.tickerName}>{row.ticker}</Tooltip>,
     };
 
     const stockDataColumnGroup: ColumnGroupType<TickerWithSubmissionIdsForEachDay> = {
@@ -189,9 +196,12 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
                 width: 80,
                 dataIndex: ['ticker'],
                 // sorter: (a: TickerWithSubmissionIdsForEachDay, b: TickerWithSubmissionIdsForEachDay) => (a.stockData?.latestPrice || 0) - (b.stockData?.latestPrice || 0),
-                render: function (ticker: string) {
-                    return stockData[ticker]?.latestPrice;
-                },
+                render: (ticker: string) => ({
+                    // props: {
+                    //     className: classNames({'flash-increase': }),
+                    // },
+                    children: stockData[ticker]?.latestPrice,
+                })
             },
             {
                 title: 'Change',

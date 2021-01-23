@@ -5,29 +5,24 @@ import {formatISO9075} from 'date-fns';
 import {dateToUnixSeconds, secondsInMinutesAndSeconds} from '../utils';
 import {Database} from '../database/database';
 import {config} from '../config';
-import fakeTickersImport from '../data/fake-tickers.json';
-import {TwelveDataETF, TwelveDataETFFile, TwelveDataStock, TwelveDataStockFile} from '../models/TwelveData';
-import twelveDataStocks from '../data/stocks.json';
-import twelveDataEtfs from '../data/etf.json';
-import {DBSubmission} from '../database/database-models';
+import {DBSubmission, DBTicker} from '../database/database-models';
+import {Companies, IexCloudApi, Quotes} from '../services/iex-cloud-api';
+import {TickerInfo, TickerService} from '../services/ticker-service';
 
 class RedditScraper {
     private readonly pushshiftApi: PushshiftAPI;
+    private readonly tickerService: TickerService;
     private readonly db: Database;
+    private readonly iex: IexCloudApi;
     private readonly subredditsToScrape: string[];
     private readonly scrapeSecondsInterval = 3600;
 
-    private readonly tickerRegex = /(?<=\b)[A-Z]{2,6}(?=\b)/g;
-    private readonly fakeTickers = new Set<string>(fakeTickersImport);
-    private readonly twelveDataStockMap = new Map<string, TwelveDataStock>();
-    private readonly twelveDataEtfMap = new Map<string, TwelveDataETF>();
-
     constructor() {
         this.pushshiftApi = new PushshiftAPI();
+        this.tickerService = new TickerService();
+        this.iex = new IexCloudApi();
         this.db = new Database(config.databasePath);
         this.subredditsToScrape = config.availableSubreddits;
-        (twelveDataStocks as TwelveDataStockFile).data.forEach(x => this.twelveDataStockMap.set(x.symbol, x));
-        (twelveDataEtfs as TwelveDataETFFile).data.forEach(x => this.twelveDataEtfMap.set(x.symbol, x));
     }
 
     async main() {
@@ -43,13 +38,17 @@ class RedditScraper {
             console.log(`${submissions.length} submissions from ${RedditScraper.formatIsoUtcDate(startTime)} to ${RedditScraper.formatIsoUtcDate(endTime)}`);
 
             const {submissionAndTickersMap, allTickers} = this.mapSubmissionIdsToTickers(submissions);
+            const newTickers = this.filterOnlyNewTickers(allTickers);
+            console.log(`${newTickers.length} new tickers`);
+            const companies = await this.iex.getBatchedCompanyInfos(newTickers);
+            const mappedTickersNotInDb = newTickers.map(ticker => this.mapTickerToDb(ticker, companies, allTickers));
 
             totalSubmissionsScraped += submissions.length;
-            const mappedSubmissions = submissions.map(RedditScraper.mapSubmissionsToDb);
+            const mappedSubmissions = submissions.map(RedditScraper.mapSubmissionToDb);
 
             try {
                 this.db.insertSubmissions(mappedSubmissions);
-                this.db.insertTickers(allTickers);
+                this.db.insertTickers(mappedTickersNotInDb);
                 this.db.insertSubmissionsToTickers(submissionAndTickersMap);
             }
             catch (e){
@@ -65,6 +64,12 @@ class RedditScraper {
         const elapsedSeconds = Math.round((functionEndTime - functionStartTime) / 1000);
         const {minutes, seconds} = secondsInMinutesAndSeconds(elapsedSeconds);
         console.log(`Submissions: ${totalSubmissionsScraped}. Total time: ${minutes} min ${seconds} s`);
+    }
+
+    private filterOnlyNewTickers(allTickers: Map<string, TickerInfo>) {
+        const allTickersKeys = [...allTickers.keys()];
+        const tickersInDb = this.db.filterExistingTickers(allTickersKeys);
+        return allTickersKeys.filter(x => !tickersInDb.includes(x));
     }
 
     private static formatIsoUtcDate(seconds: number) {
@@ -88,6 +93,7 @@ class RedditScraper {
             after: Math.round(fromSeconds),
             fields: ['id', 'title', 'selftext', 'score', 'url', 'subreddit', 'created_utc', 'author'],
             subreddit: this.subredditsToScrape,
+            metadata: true
         });
 
         if (submissions.length === 100) {
@@ -99,36 +105,51 @@ class RedditScraper {
     }
 
     private mapSubmissionIdsToTickers(submissions: Submission[]) {
-        const allTickersSet = new Set<string>();
+        const allTickersMap = new Map<string, TickerInfo>();
         const submissionAndTickersMap = submissions.reduce((result: Record<string, Set<string>>, submission) => {
             const tickers = this.getTickers(submission);
             if (tickers.size > 0) {
-                tickers.forEach(x => allTickersSet.add(x));
+                tickers.forEach(ticker =>{
+                    allTickersMap.set(ticker, this.tickerService.getTickerInfo(ticker));
+                });
                 result[submission.id!] = tickers;
             }
             return result;
-        }, {})
-        const allTickers = [...allTickersSet];
-        return {submissionAndTickersMap, allTickers};
+        }, {});
+
+        return {submissionAndTickersMap, allTickers: allTickersMap};
     }
 
     private getTickers(submission: Submission) {
-        const uniqueTickersInTitle = this.extractTickersFromText(submission.title ?? '');
-        const uniqueTickersInText = this.extractTickersFromText(submission.selftext ?? '');
+        const uniqueTickersInTitle = this.tickerService.extractTickersFromText(submission.title ?? '');
+        const uniqueTickersInText = this.tickerService.extractTickersFromText(submission.selftext ?? '');
         return new Set([...uniqueTickersInText, ...uniqueTickersInTitle]);
     }
 
-    private extractTickersFromText(text: string): string[] {
-        const regexMatches = text.matchAll(this.tickerRegex);
-        const words = [...regexMatches].map(match => match[0])
-        return [...new Set(words)].filter(x => this.isRealTicker(x));
+    private mapTickerToDb(ticker: string, companies: Companies, allTickers: Map<string, TickerInfo>): DBTicker {
+        const tickerInfo = allTickers.get(ticker)!;
+        const iexCompany = companies[ticker];
+        return {
+            ticker: ticker,
+            name: getCompanyName(),
+            is_fake: tickerInfo.isFake ? 1 : 0,
+            exchange: iexCompany?.exchange ?? tickerInfo.exchange,
+            currency: tickerInfo.currency,
+            industry: iexCompany?.industry,
+            sector: iexCompany?.sector,
+            website: iexCompany?.sector
+        }
+
+        function getCompanyName() {
+            return iexCompany
+                ? iexCompany.issueType === 'cs'
+                    ? iexCompany.companyName
+                    : iexCompany.securityName
+                : tickerInfo.companyName;
+        }
     }
 
-    private isRealTicker(ticker: string) {
-        return !this.fakeTickers.has(ticker) && (this.twelveDataStockMap.has(ticker) || this.twelveDataEtfMap.has(ticker));
-    }
-
-    private static mapSubmissionsToDb(apiSubmission: Submission): DBSubmission {
+    private static mapSubmissionToDb(apiSubmission: Submission): DBSubmission {
         return {
             author: apiSubmission.author!,
             created_utc: apiSubmission.created_utc!,

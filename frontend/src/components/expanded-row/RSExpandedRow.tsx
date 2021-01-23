@@ -24,19 +24,19 @@ export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({calculated
     return (<div className={'rs-expanded-row'}>
         <div className={'stock-header'}>
             <Title level={4} className={'stock-and-company-title'}>
-                {calculatedRow.ticker}
+                {calculatedRow.ticker} | {calculatedRow.tickerName}
             </Title>
             <RSStockLink href={`https://finance.yahoo.com/quote/${calculatedRow.ticker}`}>Yahoo Finance</RSStockLink>
             <RSStockLink href={`https://stockanalysis.com/stocks/${calculatedRow.ticker}`}>Stock Analysis</RSStockLink>
             <RSStockLinkSeparator />
             <RSStockLink href={`https://www.google.com/search?q=stock+${calculatedRow.ticker}`}>Google Search Ticker</RSStockLink>
             <RSStockLink href={`https://www.google.com/search?tbm=nws&q=stock+${calculatedRow.ticker}`}>Google News Ticker</RSStockLink>
-            {/*{calculatedRow.stockData &&*/}
-            {/*<>*/}
-            {/*    <RSStockLink href={`https://www.google.com/search?q=${calculatedRow.stockData.companyName}`}>Google Search Company</RSStockLink>*/}
-            {/*    <RSStockLink href={`https://www.google.com/search?tbm=nws&q=${calculatedRow.stockData.companyName}`}>Google News Company</RSStockLink>*/}
-            {/*</>*/}
-            {/*}*/}
+            {calculatedRow.tickerName &&
+            <>
+                <RSStockLink href={`https://www.google.com/search?q=${calculatedRow.tickerName}`}>Google Search Company</RSStockLink>
+                <RSStockLink href={`https://www.google.com/search?tbm=nws&q=${calculatedRow.tickerName}`}>Google News Company</RSStockLink>
+            </>
+            }
         </div>
 
         <Collapse ghost>

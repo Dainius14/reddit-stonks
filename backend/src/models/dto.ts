@@ -1,11 +1,13 @@
 export interface MainDataResponseDTO {
     data: TickerWithSubmissionIdsForEachDayDTO[];
     lastSubmissionTime: string;
+    submissionsUpdated: string;
     daysDesc: string[]
 }
 
 export interface TickerWithSubmissionIdsForEachDayDTO {
     ticker: string;
+    tickerName: string;
     days: DayWithSubredditsDTO[];
 }
 

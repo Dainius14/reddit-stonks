@@ -1,18 +1,12 @@
-import {DBSubmission} from '../database/database-models';
-import {add, formatISO, startOfDay, sub} from 'date-fns';
+import {add, formatISO} from 'date-fns';
 import twelveDataStocks from '../data/stocks.json';
 import twelveDataEtfs from '../data/etf.json';
-import fakeTickersImport from '../data/fake-tickers.json';
 import {TwelveDataETF, TwelveDataETFFile, TwelveDataStock, TwelveDataStockFile} from '../models/TwelveData';
-import {StockData} from '../controllers/stocks.controller';
 import {GetAllSubmissionsResult} from '../database/database';
 import {DayWithSubredditsDTO, TickerWithSubmissionIdsForEachDayDTO} from '../models/dto';
 
 export class MainDataService {
 
-    private readonly tickerRegex = /[A-Z]{3,5}/g;
-
-    private readonly fakeTickers = new Set<string>(fakeTickersImport);
     private readonly twelveDataStockMap = new Map<string, TwelveDataStock>();
     private readonly twelveDataEtfMap = new Map<string, TwelveDataETF>();
 
@@ -55,6 +49,7 @@ export class MainDataService {
 
                 currentTickerGroup = {
                     ticker: row.ticker,
+                    tickerName: row.name,
                     days: [currentDayGroup],
                 };
                 result.push(currentTickerGroup);

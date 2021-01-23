@@ -1,49 +1,21 @@
 import {Context} from 'koa';
-import IEXCloudClient from 'node-iex-cloud';
-import {config} from '../config';
-import axios from 'axios';
-import Quote from 'node-iex-cloud/lib/types/Quote';
-import {StockDataResponseDTO} from '../models/dto';
+import {StockDataDTO, StockDataResponseDTO} from '../models/dto';
+import {IexCloudApi} from '../services/iex-cloud-api';
 
 export class StocksController {
-    private iex: IEXCloudClient;
+    private iex: IexCloudApi;
+
     constructor() {
-        this.iex = new IEXCloudClient(axios, {
-            sandbox: config.iexIsSandbox,
-            publishable: config.iexToken,
-            version: "stable"
-        });
+        this.iex = new IexCloudApi();
     }
 
     public async getInfo(ctx: Context) {
         const tickers = (ctx.params.ticker as string).split(',');
 
-        const tickerGroups = tickers.reduce((result: string[][], ticker) => {
-            const currentGroup = result[result.length - 1];
-            if (currentGroup.length < 10) {
-                currentGroup.push(ticker);
-            }
-            else {
-                result.push([ticker])
-            }
-            return result;
-        }, [[]])
+        const quotes = await this.iex.getBatchedQuotes(tickers);
 
-        const quoteBatches = tickerGroups.map(group => {
-            return this.iex
-                .batchSymbols(group.join(','))
-                .batch()
-                .quote()
-                .range()
-        });
-
-        const quoteGroups = await Promise.all(quoteBatches);
-
-        const quotes = quoteGroups.reduce((result: Record<string, any>, currentGroup) => ({...result, ...currentGroup}), {});
-
-
-        ctx.body = tickers.reduce((result: Record<string, StockData | null>, ticker) => {
-            const quote = quotes[ticker]?.quote as Quote;
+        ctx.body = tickers.reduce((result: Record<string, StockDataDTO | null>, ticker) => {
+            const quote = quotes[ticker];
             if (!quote) {
                 result[ticker] = null;
             }
@@ -62,15 +34,4 @@ export class StocksController {
             return result;
         }, {}) as StockDataResponseDTO;
     }
-}
-
-export interface StockData {
-    companyName: string;
-    latestPrice: number;
-    change: number;
-    changePercent: number;
-    low: number;
-    high: number;
-    open: number;
-    close: number;
 }

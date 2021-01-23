@@ -27,6 +27,7 @@ interface IndexPageState {
     selectedSubreddits: Set<string>;
     mainData: TickerWithSubmissionIdsForEachDay[];
     mainDataUpdatedAt?: Date;
+    submissionsUpdatedAt?: Date;
     searchText: string;
     tableDataLoading: boolean;
 }
@@ -40,6 +41,7 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         selectedSubreddits: new Set<string>(),
         mainData: [],
         mainDataUpdatedAt: undefined,
+        submissionsUpdatedAt: undefined,
         searchText: '',
         tableDataLoading: true,
     };
@@ -64,7 +66,7 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         try {
             const response = await RedditStonksApi.getMainData(days);
             this.setMainData(mapFromTickerGroupDtos(response.data));
-            this.setMainDataUpdatedAt(new Date(response.lastSubmissionTime));
+            this.setMainDataAndSubmissionsUpdatedAt(new Date(response.lastSubmissionTime), new Date(response.submissionsUpdated));
             this.setAvailableDayGroups(response.daysDesc);
         }
         catch (ex) {
@@ -148,7 +150,10 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
                     />}
                 >
                     {{
-                        footerLeftSide: <FooterLeftSide lastSubmission={this.state.mainDataUpdatedAt!}/>
+                        footerLeftSide: <FooterLeftSide
+                            lastSubmission={this.state.mainDataUpdatedAt!}
+                            submissionsUpdated={this.state.submissionsUpdatedAt!}
+                        />
                     }}
                 </RSTable>
             }
@@ -193,9 +198,10 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         }));
     }
 
-    private setMainDataUpdatedAt(value: Date) {
+    private setMainDataAndSubmissionsUpdatedAt(mainDataUpdated: Date, submissionsUpdated: Date) {
         this.setState(() => ({
-            mainDataUpdatedAt: value,
+            mainDataUpdatedAt: mainDataUpdated,
+            submissionsUpdatedAt: submissionsUpdated,
         }));
     }
 
@@ -209,12 +215,16 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
 
 interface FooterLeftSideProps {
     lastSubmission: Date;
+    submissionsUpdated: Date;
 }
 
-const FooterLeftSide: FC<FooterLeftSideProps> = ({lastSubmission}) => {
+const FooterLeftSide: FC<FooterLeftSideProps> = ({lastSubmission, submissionsUpdated}) => {
     return <>
         <Tooltip title={formatDate(lastSubmission, true)}>
             Last submission scraped {formatDistanceToNow(lastSubmission)} ago
+        </Tooltip>
+        <Tooltip title={formatDate(lastSubmission, true)}>
+            submission scores updated {formatDistanceToNow(submissionsUpdated)} ago
         </Tooltip>
     </>;
 }

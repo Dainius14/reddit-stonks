@@ -1,5 +1,6 @@
 export interface TickerWithSubmissionIdsForEachDay {
     ticker: string;
+    tickerName: string;
     days: DayWithSubreddits[];
 }
 

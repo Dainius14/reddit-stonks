@@ -14,7 +14,14 @@ const config: Config = {
     scrapeStartDay: getEnvVariable(process.env.SCRAPE_START_DATE, 'SCRAPE_START_DATE'),
 };
 
-export { config };
+const redditConfig: RedditConfig = {
+    username: getEnvVariable(process.env.REDDIT_USER_NAME, 'REDDIT_USER_NAME'),
+    password: getEnvVariable(process.env.REDDIT_PASSWORD, 'REDDIT_PASSWORD'),
+    clientId: getEnvVariable(process.env.REDDIT_CLIENT_ID, 'REDDIT_CLIENT_ID'),
+    clientSecret: getEnvVariable(process.env.REDDIT_CLIENT_SECRET, 'REDDIT_CLIENT_SECRET'),
+}
+
+export { config, redditConfig };
 
 interface Config {
     isDevelopment: boolean;
@@ -24,6 +31,13 @@ interface Config {
     databasePath: string;
     availableSubreddits: string[];
     scrapeStartDay: string;
+}
+
+interface RedditConfig {
+    username: string;
+    password: string;
+    clientId: string;
+    clientSecret: string;
 }
 
 function getEnvVariable(variable: string | undefined, name: string) {

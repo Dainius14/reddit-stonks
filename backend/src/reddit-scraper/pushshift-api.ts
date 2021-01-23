@@ -21,6 +21,10 @@ export class PushshiftAPI {
 
         try {
             const response = await axios.get<PushshiftResponse<T>>(endpoint + '?' + params);
+            if (response.data.metadata.shards.successful !== response.data.metadata.shards.total) {
+                console.log('Not all shards are active, retrying in 15 minutes');
+                process.exit(1);
+            }
             return response.data.data;
         }
         catch (ex)
@@ -29,7 +33,7 @@ export class PushshiftAPI {
             console.error(e.message);
             if (retry < 3) {
                 await new Promise<void>((resolve) => {
-                    setTimeout(() => resolve(), 2000)
+                    setTimeout(() => resolve(), 5000)
                 });
                 console.log('Retrying request...');
                 return this.doRequest(endpoint, request, retry + 1);
@@ -61,8 +65,34 @@ export class PushshiftAPI {
     }
 }
 
+interface PushshiftMetadata {
+    after: number,
+    agg_size: number,
+    api_version: string,
+    before: number,
+    es_query: any,
+    execution_time_milliseconds: number,
+    index: string,
+    metadata: boolean,
+    q: string,
+    ranges: [],
+    results_returned: number,
+    shards: {
+        failed: number,
+        skipped: number,
+        successful: number,
+        total: number
+    },
+    size: number,
+    sort: string,
+    sort_type: string,
+    timed_out: boolean,
+    total_results: number
+}
+
 export interface PushshiftResponse<T> {
     data: T[];
+    metadata: PushshiftMetadata;
 }
 
 export interface PushshiftApiOptions {
@@ -77,6 +107,7 @@ interface BaseRequest {
     sort_type?: 'score' | 'num_comments' | 'created_utc';
     before?: Date | number;
     after?: Date | number;
+    metadata: true;
 }
 
 export interface SubmissionsRequest extends BaseRequest {
