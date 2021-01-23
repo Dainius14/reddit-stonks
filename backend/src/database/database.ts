@@ -1,5 +1,6 @@
 import BetterSqliteDatabase, {Statement, Transaction} from 'better-sqlite3';
 import {DBSubmission, DBTicker} from './database-models';
+import {batchArray} from '../utils';
 
 export class Database {
     private db: BetterSqliteDatabase.Database;
@@ -112,14 +113,20 @@ export class Database {
     }
 
     public filterExistingTickers(tickers: string[]) {
-        const tickerParams = tickers.map(x => '?').join(',');
+        const tickerBatches = batchArray(tickers, 50);
 
-        const query = this.db.prepare(`
+        const results: string[] = [];
+        for (const batch of tickerBatches) {
+            const tickerParams = tickers.map(x => '?').join(',');
+
+            const query = this.db.prepare(`
             SELECT ticker FROM tickers
             WHERE ticker IN (${tickerParams})`);
 
-        const results = query.all(tickers) as {ticker: string}[];
-        return results.map(x => x.ticker);
+            const batchResults = query.all(tickers) as {ticker: string}[];
+            results.push(...batchResults.map(x => x.ticker));
+        }
+        return results;
     }
 
     public setSubmissionsUpdated(utc: number) {
