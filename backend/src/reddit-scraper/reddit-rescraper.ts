@@ -23,7 +23,7 @@ class RedditRescraper {
     async main() {
         const start = performance.now();
         console.log('Starting rescrapping...');
-        const startTimestamp = getSomeDaysAgoStartOfDayTimestamp(1);
+        const startTimestamp = getSomeDaysAgoStartOfDayTimestamp(redditConfig.rescrapeDays);
 
         const submissions = this.db.getSubmissionIds(startTimestamp);
         console.log(`Rescraping ${submissions.length} submissions`);

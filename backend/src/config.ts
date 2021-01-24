@@ -19,6 +19,7 @@ const redditConfig: RedditConfig = {
     password: getEnvVariable(process.env.REDDIT_PASSWORD, 'REDDIT_PASSWORD'),
     clientId: getEnvVariable(process.env.REDDIT_CLIENT_ID, 'REDDIT_CLIENT_ID'),
     clientSecret: getEnvVariable(process.env.REDDIT_CLIENT_SECRET, 'REDDIT_CLIENT_SECRET'),
+    rescrapeDays: parseInt(getEnvVariable(process.env.RESCRAPE_DAYS, 'RESCRAPE_DAYS')),
 }
 
 export { config, redditConfig };
@@ -38,6 +39,7 @@ interface RedditConfig {
     password: string;
     clientId: string;
     clientSecret: string;
+    rescrapeDays: number;
 }
 
 function getEnvVariable(variable: string | undefined, name: string) {
