@@ -113,7 +113,7 @@ export class Database {
     }
 
     public filterExistingTickers(tickers: string[]) {
-        const tickerBatches = batchArray(tickers, 50);
+        const tickerBatches = batchArray(tickers, 999);
 
         const results: string[] = [];
         for (const batch of tickerBatches) {
@@ -123,7 +123,7 @@ export class Database {
             SELECT ticker FROM tickers
             WHERE ticker IN (${tickerParams})`);
 
-            const batchResults = query.all(tickers) as {ticker: string}[];
+            const batchResults = query.all(...tickers) as {ticker: string}[];
             results.push(...batchResults.map(x => x.ticker));
         }
         return results;
