@@ -3,7 +3,7 @@ import {Pagination, Table, Tooltip} from 'antd';
 import * as React from 'react';
 import {ColumnGroupType, ColumnsType, ColumnType} from 'antd/es/table';
 import './RSTable.styles.scss';
-import {FunctionComponent, ReactNode, useEffect, useMemo, useState} from 'react';
+import {FC, FunctionComponent, ReactNode, useEffect, useMemo, useState} from 'react';
 import {
     DayWithSubreddits,
     SubredditWithSubmissionIds,
@@ -14,7 +14,8 @@ import {formatISO} from 'date-fns';
 import {calculateData} from '../../helpers/data-calculations';
 import {SortOrder} from 'antd/es/table/interface';
 import {RedditStonksApi} from '../../api';
-import { StockDataDTO, StockDataResponseDTO } from '../../../../backend/src/models/dto';
+import {StockDataResponseDTO } from '../../../../backend/src/models/dto';
+import {RSHeartButton, } from '../heart-button/RSHeartButton';
 
 
 const dayColKey = 'days';
@@ -32,14 +33,15 @@ interface RSTableProps {
     pageHeaderHeight: number,
     children: {
         footerLeftSide: ReactNode
-    }
+    },
+    lovedTickers: Set<string>
 }
 
 let previouslySelectedSubreddits: Set<string> = new Set<string>();
 let updateStockDataInterval: any;
 
 export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups, availableSubreddits, selectedSubreddits, data, onExpandedRowRender,
-                                                             onChange, pageHeaderHeight, children}) => {
+        onChange, pageHeaderHeight, children, lovedTickers}) => {
 
     useEffect(() => setTableHeaderHeight(document.querySelector('.rs-main-data-table .ant-table-header')!.clientHeight), [selectedSubreddits]);
 
@@ -51,7 +53,7 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
     const [stockData, setStockData] = useState<StockDataResponseDTO>({});
 
     const availableColumns = useMemo(() => createColumns(dayGroups, availableSubreddits,
-        () => previouslySelectedSubreddits !== selectedSubreddits, stockData), [dayGroups, availableSubreddits, stockData]) ;
+        () => previouslySelectedSubreddits !== selectedSubreddits, stockData, lovedTickers), [dayGroups, availableSubreddits, stockData, lovedTickers]) ;
     const filteredColumns = useMemo(() => filterColumns(availableColumns, selectedSubreddits), [availableColumns, selectedSubreddits]);
 
     const calculatedRows = useMemo(() => calculateData(data, selectedSubreddits), [data, selectedSubreddits]);
@@ -173,14 +175,14 @@ function filterDataOnSearchText(rows: TickerWithSubmissionIdsForEachDay[], searc
 }
 
 function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], shouldDayGroupsTotalColumnUpdateFn: () => boolean,
-                       stockData: Record<string, StockDataDTO | null>): ColumnType<TickerWithSubmissionIdsForEachDay>[] {
+                       stockData: StockDataResponseDTO, lovedTickers: Set<string>): ColumnType<TickerWithSubmissionIdsForEachDay>[] {
     const titleColumn: ColumnType<TickerWithSubmissionIdsForEachDay> = {
         title: 'Ticker',
         key: 'ticker',
         fixed: 'left',
         width: 80,
         sorter: (a, b) => 0,
-        render: (row: TickerWithSubmissionIdsForEachDay) => <Tooltip title={row.tickerName}>{row.ticker}</Tooltip>,
+        render: (row: TickerWithSubmissionIdsForEachDay) => <TickerCell row={row} loved={lovedTickers.has(row.ticker)}/>,
     };
 
     const stockDataColumnGroup: ColumnType<TickerWithSubmissionIdsForEachDay> =
@@ -332,9 +334,14 @@ function getChangeText(change: number, isFinite: boolean) {
     return changePercent;
 }
 
-interface StockCellFlashings extends Record<string, StockCellFlashing> {}
+interface TickerCellProps {
+    row: TickerWithSubmissionIdsForEachDay;
+    loved: boolean;
+}
 
-interface StockCellFlashing {
-    price: string;
-    change: string;
+const TickerCell: FC<TickerCellProps> = ({row, loved}) => {
+    return <Tooltip title={row.tickerName}>
+        {row.ticker}
+        {loved && <RSHeartButton className={'rs-main-data-table-remembered-ticker'} isActivated={true}/>}
+    </Tooltip>;
 }

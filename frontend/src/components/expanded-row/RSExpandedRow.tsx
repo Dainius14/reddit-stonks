@@ -8,6 +8,8 @@ import './RSExpandedRow.styles.scss';
 import {ColumnType} from 'antd/es/table';
 import {TickerWithSubmissionIdsForEachDay} from '../../models/TableData';
 import {NewsDTO, SubmissionDTO } from '../../../../backend/src/models/dto';
+import { HeartFilled, HeartOutlined } from '@ant-design/icons';
+import { RSHeartButton } from '../heart-button/RSHeartButton';
 
 
 interface RSExpandedRowProps {
@@ -17,10 +19,12 @@ interface RSExpandedRowProps {
     selectedSubreddits: Set<string>,
     news: NewsDTO[] | undefined;
     newsExpanded: () => void;
+    isLoved: boolean;
+    isLovedChanged: (isLoved: boolean) => void;
 }
 
 export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({calculatedRow, rawRow, allSubmissions,
-     selectedSubreddits, news, newsExpanded}) => {
+     selectedSubreddits, news, newsExpanded, isLoved, isLovedChanged}) => {
 
     const {allSubredditSubmissions, selectedSubredditSubmissions, selectedSubredditSubmissionGroups} = getSubmissionGroups(rawRow, allSubmissions, selectedSubreddits);
 
@@ -28,7 +32,13 @@ export const RSExpandedRow: FunctionComponent<RSExpandedRowProps> = ({calculated
         <div className={'stock-header'}>
             <Title level={4} className={'stock-and-company-title'}>
                 {calculatedRow.ticker} | {calculatedRow.tickerName}
+                <RSHeartButton
+                    className={'rs-expanded-row-heart-button'}
+                    isActivated={isLoved}
+                    isActivatedChanged={(value) => isLovedChanged(value)}
+                />
             </Title>
+
             <RSStockLink href={`https://finance.yahoo.com/quote/${calculatedRow.ticker}`}>Yahoo Finance</RSStockLink>
             <RSStockLink href={`https://stockanalysis.com/stocks/${calculatedRow.ticker}`}>Stock Analysis</RSStockLink>
             <RSStockLinkSeparator />
@@ -198,7 +208,7 @@ const RSStockLink: FunctionComponent<{ href: string }> = ({ href, children }) =>
 );
 
 const RSStockLinkSeparator: FunctionComponent = () => (
-    <Title level={5} className={'stock-link'}>|</Title>
+    <Title level={5} className={'stock-link-separator'}>|</Title>
 );
 
 const RSSubmissionLink: FunctionComponent<{submission: SubmissionDTO}> = ({ submission }) => (

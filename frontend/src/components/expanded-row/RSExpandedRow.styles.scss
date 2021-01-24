@@ -22,10 +22,14 @@
         }
     }
 
-    .stock-link {
+    .stock-link, .stock-link-separator {
         display: inline-block;
         font-size: 12px;
         margin-right: 10px;
+    }
+
+    .rs-expanded-row-heart-button {
+        margin-left: 10px;
     }
 
     .ant-table-pagination.ant-pagination {

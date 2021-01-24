@@ -31,6 +31,7 @@ interface IndexPageState {
     searchText: string;
     tableDataLoading: boolean;
     news: Record<string, NewsDTO[]>;
+    lovedTickers: Set<string>,
 }
 
 export class IndexPage extends Component<IndexPageProps, IndexPageState> {
@@ -45,7 +46,8 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         submissionsUpdatedAt: undefined,
         searchText: '',
         tableDataLoading: true,
-        news: {}
+        news: {},
+        lovedTickers: new Set<string>()
     };
 
     private submissions: Record<string, SubmissionDTO> = {};
@@ -59,6 +61,8 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         ]);
 
         this.setTableDataLoading(false);
+
+        this.setLovedTickers(new Set(LocalStorage.getObject<string[]>('lovedTickers')));
 
         this.setHeaderHeight(document.querySelector('.rs-index-header')!.clientHeight);
         window.addEventListener('resize', () => this.setHeaderHeight(document.querySelector('.rs-index-header')!.clientHeight));
@@ -111,6 +115,18 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         LocalStorage.setObject('selectedSubreddits', newSelectionsStrings);
     }
 
+    onIsLovedChanged(ticker: string, value: boolean) {
+        const lovedTickersCopy = new Set(this.state.lovedTickers);
+        if (value) {
+            lovedTickersCopy.add(ticker);
+        }
+        else {
+            lovedTickersCopy.delete(ticker);
+        }
+        this.setLovedTickers(lovedTickersCopy);
+        LocalStorage.setObject('lovedTickers', [...lovedTickersCopy]);
+    }
+
     onSearch(searchText: string) {
         this.setSearchText(searchText);
     }
@@ -143,6 +159,7 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
                     selectedSubreddits={this.state.selectedSubreddits}
                     data={this.state.mainData}
                     pageHeaderHeight={this.state.headerHeight}
+                    lovedTickers={this.state.lovedTickers}
                     onChange={(a, b, c, d) => console.log(a, b, c, d)}
                     onExpandedRowRender={(calculatedRow) => <RSExpandedRow
                         allSubmissions={this.submissions}
@@ -151,6 +168,8 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
                         selectedSubreddits={this.state.selectedSubreddits}
                         news={this.state.news[calculatedRow.ticker]}
                         newsExpanded={async () => await this.onNewsExpanded(calculatedRow.ticker)}
+                        isLoved={this.state.lovedTickers.has(calculatedRow.ticker)}
+                        isLovedChanged={(value) => this.onIsLovedChanged(calculatedRow.ticker, value)}
                     />}
                 >
                     {{
@@ -212,6 +231,12 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
     private setHeaderHeight(value: number) {
         this.setState(() => ({
             headerHeight: value,
+        }));
+    }
+
+    private setLovedTickers(value: Set<string>) {
+        this.setState(() => ({
+            lovedTickers: value,
         }));
     }
 
