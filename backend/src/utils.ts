@@ -15,6 +15,10 @@ export function getSomeDaysAgoStartOfDayTimestamp(days: number) {
     return Math.round(startOfDay(sub(new Date(), {days})).getTime() / 1000);
 }
 
+export function getSomeDaysAgoEndOfDayTimestamp(days: number) {
+    return Math.round(startOfDay(sub(new Date(), {days: days - 1})).getTime() / 1000) - 1;
+}
+
 export function batchArray<T>(input: T[], batchSize: number): T[][] {
     return input.reduce((result: T[][], item) => {
         const batch = result[result.length - 1];

@@ -15,9 +15,9 @@ export class MainDataService {
         (twelveDataEtfs as TwelveDataETFFile).data.forEach(x => this.twelveDataEtfMap.set(x.symbol, x));
     }
 
-    transformToStructuredData(groupedSubmissionResult: GetAllSubmissionsResult[], firstDay: Date, subreddits: string[]): TickerWithSubmissionIdsForEachDayDTO[] {
+    transformToStructuredData(groupedSubmissionResult: GetAllSubmissionsResult[], firstDay: Date, lastDay: Date, subreddits: string[]): TickerWithSubmissionIdsForEachDayDTO[] {
         const result = this.createStructuredData(groupedSubmissionResult);
-        this.fillEmptyDays(result, firstDay);
+        this.fillEmptyDays(result, firstDay, lastDay);
         this.reverseDaysSorting(result);
         this.fillEmptySubreddits(result, subreddits);
 
@@ -72,10 +72,9 @@ export class MainDataService {
         return result;
     }
 
-    getDayGroupsAsc(firstDay: Date) {
+    getDayGroupsAsc(firstDay: Date, lastDay: Date) {
         const groups = [];
         let currDay = new Date(firstDay);
-        const lastDay = new Date();
         while (currDay < lastDay) {
             groups.push(currDay);
             currDay = add(currDay, {days: 1});
@@ -84,8 +83,8 @@ export class MainDataService {
             .map(date => formatISO(date, {representation: 'date'}));
     }
 
-    fillEmptyDays(tickerGroups: TickerWithSubmissionIdsForEachDayDTO[], firstDay: Date) {
-        const dayGroups = this.getDayGroupsAsc(firstDay);
+    fillEmptyDays(tickerGroups: TickerWithSubmissionIdsForEachDayDTO[], firstDay: Date, lastDay: Date) {
+        const dayGroups = this.getDayGroupsAsc(firstDay, lastDay);
         for (const tickerGroup of tickerGroups) {
 
             for (let i = 0; i < dayGroups.length; i++) {

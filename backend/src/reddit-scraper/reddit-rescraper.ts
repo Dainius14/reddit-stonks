@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import Snoowrap from 'snoowrap';
 import {batchArray, getSomeDaysAgoStartOfDayTimestamp, secondsInMinutesAndSeconds} from '../utils';
 import {performance} from 'perf_hooks';
+import {sub} from 'date-fns';
 
 class RedditRescraper {
     private readonly db: Database;
@@ -18,12 +19,16 @@ class RedditRescraper {
             clientSecret: redditConfig.clientSecret,
             userAgent: `client ${redditConfig.clientId} personal scraper`
         });
+
+        this.snoowrap.config({
+            continueAfterRatelimitError: true
+        });
     }
 
     async main() {
         const start = performance.now();
         console.log('Starting rescrapping...');
-        const startTimestamp = getSomeDaysAgoStartOfDayTimestamp(redditConfig.rescrapeDays);
+        const startTimestamp = Math.round(sub(new Date(), {hours: 3}).getTime() / 1000);
 
         const submissions = this.db.getSubmissionIds(startTimestamp);
         console.log(`Rescraping ${submissions.length} submissions`);

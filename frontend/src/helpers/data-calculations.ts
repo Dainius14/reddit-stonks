@@ -6,6 +6,10 @@ export function calculateData(tickerGroups: TickerWithSubmissionIdsForEachDay[],
 
         calculateChanges(newTickerGroup);
 
+        if (newTickerGroup.ticker === 'GME')
+        {
+            console.log(newTickerGroup)
+        }
         return newTickerGroup;
     });
 }

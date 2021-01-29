@@ -51,7 +51,7 @@ export class Database {
         return this.transactionOnMany(query, updatedSubmissions);
     }
 
-    public getGroupedSubmissions(from: number): GetAllSubmissionsResult[] {
+    public getGroupedSubmissions(from: number, to: number): GetAllSubmissionsResult[] {
         interface GetAllSubmissionsResultNoIdsArray {
             ticker: string;
             name: string;
@@ -64,11 +64,11 @@ export class Database {
             SELECT t.ticker, t.name, strftime('%Y-%m-%d', subs.created_utc, 'unixepoch', 'localtime') AS day_group, lower(subs.subreddit) AS subreddit, group_concat(subs.id) AS ids FROM submissions AS subs
             JOIN submission_has_ticker AS sht ON subs.id = sht.submission_id
             JOIN tickers AS t ON t.ticker = sht.ticker
-            WHERE t.is_fake = 0 AND subs.created_utc > @from
+            WHERE t.is_fake = 0 AND subs.created_utc > @from AND subs.created_utc <= @to
             GROUP BY t.ticker, day_group, subs.subreddit, t.ticker
         `);
 
-        const results = query.all({from}) as GetAllSubmissionsResultNoIdsArray[];
+        const results = query.all({from, to}) as GetAllSubmissionsResultNoIdsArray[];
 
         return results.map(x => ({...x, ids: x.ids.split(',')}));
     }

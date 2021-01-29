@@ -123,7 +123,6 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
                 size="small"
                 total={totalRows}
                 onChange={((page, pageSize) => {
-                    console.log(page, pageSize)
                     setPage(page - 1);
                     setPageSize(pageSize ?? 25);
                 })}
@@ -222,9 +221,6 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
                 key: formatKey([dayColKey, dayIndex, 'total']),
                 dataIndex: ['days', dayIndex],
                 sorter: () => 0,
-                shouldCellUpdate: () => {
-                    return shouldDayGroupsTotalColumnUpdateFn();
-                },
                 render: (currentDay: DayWithSubreddits) => {
                     const isLastColumn = dayIndex === dayGroupsDesc.length - 1;
                     const allTickerCountForDay = currentDay.subreddits
@@ -240,9 +236,6 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
                         key: formatKey([dayColKey, dayIndex, subreddit]),
                         dataIndex: ['days', dayIndex, 'subreddits'],
                         sorter: () => 0,
-                        shouldCellUpdate: () => {
-                            return false;
-                        },
                         render: (todaysSubreddits: SubredditWithSubmissionIds[]) => {
                             const isLastColumn = dayIndex === dayGroupsDesc.length - 1;
                             const currentSubreddit = todaysSubreddits.find(x => x.subreddit === subreddit);

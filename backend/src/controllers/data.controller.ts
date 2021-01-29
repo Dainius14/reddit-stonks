@@ -4,7 +4,7 @@ import {config} from '../config';
 import {startOfDay, sub} from 'date-fns';
 import {MainDataService} from '../services/main-data-service';
 import {MainDataResponseDTO, SubmissionDTO, SubmissionsResponseDTO} from '../models/dto';
-import {getSomeDaysAgoStartOfDayTimestamp} from '../utils';
+import {getSomeDaysAgoEndOfDayTimestamp, getSomeDaysAgoStartOfDayTimestamp} from '../utils';
 
 export class DataController {
     private db: Database;
@@ -22,9 +22,10 @@ export class DataController {
         }
 
         const startTimestamp = getSomeDaysAgoStartOfDayTimestamp(days);
+        const endTimeStamp = getSomeDaysAgoEndOfDayTimestamp(days);
 
-        const groupedSubmissionResult = this.db.getGroupedSubmissions(startTimestamp);
-        const structuredSubmissions = this.mainDataService.transformToStructuredData(groupedSubmissionResult, new Date(startTimestamp * 1000), config.availableSubreddits);
+        const groupedSubmissionResult = this.db.getGroupedSubmissions(startTimestamp, endTimeStamp);
+        const structuredSubmissions = this.mainDataService.transformToStructuredData(groupedSubmissionResult, new Date(startTimestamp * 1000), new Date(endTimeStamp * 1000), config.availableSubreddits);
 
         const lastSubmissionTime = this.db.getLastSubmissionTime() ?? new Date().getTime() / 1000;
 
@@ -32,7 +33,7 @@ export class DataController {
             data: structuredSubmissions,
             lastSubmissionTime: new Date(lastSubmissionTime * 1000).toISOString(),
             submissionsUpdated: new Date(this.db.getSubmissionsUpdated() * 1000).toISOString(),
-            daysDesc: this.mainDataService.getDayGroupsAsc(new Date(startTimestamp * 1000)).reverse()
+            daysDesc: this.mainDataService.getDayGroupsAsc(new Date(startTimestamp * 1000), new Date(endTimeStamp * 1000)).reverse()
         } as MainDataResponseDTO;
     }
 

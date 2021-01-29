@@ -9,6 +9,7 @@ import './IndexPage.styles.scss';
 import {RedditStonksApi, RequestError} from '../api';
 import {LocalStorage} from '../helpers/local-storage';
 import {
+    DayWithSubreddits,
     TickerWithSubmissionIdsForEachDay,
 } from '../models/TableData';
 import {mapFromTickerGroupDtos} from '../helpers/mappers';
@@ -53,24 +54,22 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
     private submissions: Record<string, SubmissionDTO> = {};
 
     public async componentDidMount() {
-        this.setTableDataLoading(true);
-        this.loadSubmissions(5);
-        await Promise.allSettled([
-            this.loadAvailableSubreddits(),
-            this.loadTableData(5),
-        ]);
-
-        this.setTableDataLoading(false);
-
         this.setLovedTickers(new Set(LocalStorage.getObject<string[]>('lovedTickers')));
-
+        this.setTableDataLoading(true);
+        await this.loadAvailableSubreddits();
+        await this.loadSubmissions(5);
+        await this.loadTableData(0);
         this.setHeaderHeight(document.querySelector('.rs-index-header')!.clientHeight);
         window.addEventListener('resize', () => this.setHeaderHeight(document.querySelector('.rs-index-header')!.clientHeight));
+        this.setTableDataLoading(false);
+
+        this.loadMoreTableData(1, 5);
     }
 
-    private async loadTableData(days: number) {
+
+    private async loadTableData(day: number) {
         try {
-            const response = await RedditStonksApi.getMainData(days);
+            const response = await RedditStonksApi.getMainData(day);
             this.setMainData(mapFromTickerGroupDtos(response.data));
             this.setMainDataAndSubmissionsUpdatedAt(new Date(response.lastSubmissionTime), new Date(response.submissionsUpdated));
             this.setAvailableDayGroups(response.daysDesc);
@@ -79,6 +78,64 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
             const e = ex as RequestError;
             console.error(e.message, e.response);
         }
+    }
+
+    private async loadMoreTableData(day: number, max: number) {
+        try {
+            const response = await RedditStonksApi.getMainData(day);
+            const mappedData = mapFromTickerGroupDtos(response.data);
+            const mergedData = this.mergeData(this.state.mainData, mappedData, this.state.availableSubreddits);
+            this.setMainData(mergedData);
+            this.setAvailableDayGroups([...this.state.availableDayGroups, ...response.daysDesc]);
+
+            if (day + 1 <= max) {
+                this.loadMoreTableData(day + 1, max);
+            }
+        }
+        catch (ex) {
+            const e = ex as RequestError;
+            console.error(e.message, e.response);
+        }
+    }
+
+    private mergeData(currentAllData: TickerWithSubmissionIdsForEachDay[], newAllData: TickerWithSubmissionIdsForEachDay[], subreddits: string[]) {
+        const allTickers = [...new Set([...currentAllData.map(x => x.ticker), ...newAllData.map(x => x.ticker)])].sort();
+
+        const dummyMissingDay: DayWithSubreddits = {
+            date: newAllData[0].days[0].date,
+            subreddits: subreddits.map(x => ({
+                subreddit: x,
+                submissionIds: [],
+                isChangeFinite: true,
+                change: 0
+            })),
+            change: 0,
+            isChangeFinite: true
+        }
+        const dummyMissingExistingDays: DayWithSubreddits[] = currentAllData[0].days.map(x => ({
+            ...dummyMissingDay,
+            date: x.date
+        }));
+
+        const mergedData = allTickers.map(ticker => {
+            const existingData = currentAllData.find(x => x.ticker === ticker);
+            const newData = newAllData.find(x => x.ticker === ticker);
+            if (existingData && newData) {
+                existingData.days.push(...newData.days);
+                return existingData;
+            }
+            else if (existingData && !newData) {
+                existingData.days.push({...dummyMissingDay});
+                return existingData;
+            }
+            else {
+                newData!.days.splice(0, 0, ...dummyMissingExistingDays);
+                return newData!;
+            }
+        });
+
+
+        return mergedData;
     }
 
     private async loadAvailableSubreddits() {
