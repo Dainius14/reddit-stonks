@@ -1,5 +1,5 @@
 export interface DBSubmission {
-    id: string;
+    submission_id: string;
     subreddit: string;
     title: string;
     selftext?: string;

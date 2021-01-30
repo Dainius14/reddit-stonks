@@ -52,7 +52,7 @@ export class DataController {
         const submissions = this.db.getSubmissions(ticker, skip, limit, sortBy, order === 'asc', from, to, subreddits);
         const submissionDtos: SubmissionDTO[] = submissions.map((submission) => ({
                 created_utc: submission.created_utc,
-                id: submission.id,
+                id: submission.submission_id,
                 is_removed: submission.selftext === '[removed]',
                 score: submission.score,
                 subreddit: submission.subreddit,
