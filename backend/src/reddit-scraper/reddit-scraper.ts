@@ -153,7 +153,7 @@ class RedditScraper {
         return {
             author: apiSubmission.author!,
             created_utc: apiSubmission.created_utc!,
-            id: apiSubmission.id!,
+            submission_id: apiSubmission.id!,
             score: apiSubmission.score!,
             selftext: apiSubmission.selftext,
             subreddit: apiSubmission.subreddit!,
