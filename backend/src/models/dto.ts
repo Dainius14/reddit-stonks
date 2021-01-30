@@ -18,7 +18,7 @@ export interface DayWithSubredditsDTO {
 
 export interface SubredditWithSubmissionIdsDTO {
     subreddit: string;
-    submissionIds: string[];
+    submissionCount: number;
 }
 
 export interface SubmissionsResponseDTO {

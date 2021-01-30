@@ -1,6 +1,7 @@
-import BetterSqliteDatabase, {Statement, Transaction} from 'better-sqlite3';
+import BetterSqliteDatabase, {Statement} from 'better-sqlite3';
 import {DBSubmission, DBTicker} from './database-models';
 import {batchArray} from '../utils';
+import {getUnixTime} from 'date-fns';
 
 export class Database {
     private db: BetterSqliteDatabase.Database;
@@ -20,15 +21,20 @@ export class Database {
         return query.get()?.created_utc as number;
     }
 
-    public getSubmissions(fromCreatedUtc: number): DBSubmission[] {
+    public getSubmissions(ticker: string, skip: number, limit: number, sortBy: string, isAsc: boolean, from: Date, to: Date, subreddits: string[]): DBSubmission[] {
+        const {params, paramsMap} = this.mapArrayToParams(subreddits);
+
         const query = this.db.prepare(`
             SELECT *
-            FROM submissions
-            WHERE created_utc >= @from
-            ORDER BY created_utc DESC
+            FROM submissions subm
+            JOIN submission_has_ticker sht ON sht.submission_id = subm.id
+            WHERE sht.ticker = @ticker AND subm.created_utc >= @from AND subm.created_utc < @to AND subm.subreddit IN (${params.join(',')})
+            ORDER BY subm.${sortBy} ${isAsc ? 'ASC' : 'DESC'}
+            LIMIT @limit OFFSET @skip
         `);
 
-        return query.all({from: fromCreatedUtc}) as DBSubmission[];
+
+        return query.all({ticker, limit, skip, from: getUnixTime(from), to: getUnixTime(to), ...paramsMap}) as DBSubmission[];
     }
 
     public getSubmissionIds(fromCreatedUtc: number): string[] {
@@ -51,26 +57,26 @@ export class Database {
         return this.transactionOnMany(query, updatedSubmissions);
     }
 
-    public getGroupedSubmissions(from: number, to: number): GetAllSubmissionsResult[] {
+    public getGroupedSubmissions(from: number, to: number, subreddits: string[]): GetAllSubmissionsResult[] {
         interface GetAllSubmissionsResultNoIdsArray {
             ticker: string;
             name: string;
             day_group: string;
             subreddit: string;
-            ids: string;
+            submissionCount: number;
         }
 
+        const {params, paramsMap} = this.mapArrayToParams(subreddits);
+
         const query = this.db.prepare(`
-            SELECT t.ticker, t.name, strftime('%Y-%m-%d', subs.created_utc, 'unixepoch', 'localtime') AS day_group, lower(subs.subreddit) AS subreddit, group_concat(subs.id) AS ids FROM submissions AS subs
+            SELECT t.ticker, t.name, strftime('%Y-%m-%d', subs.created_utc, 'unixepoch', 'localtime') AS day_group, lower(subs.subreddit) AS subreddit, count(subs.id) AS submissionCount FROM submissions AS subs
             JOIN submission_has_ticker AS sht ON subs.id = sht.submission_id
             JOIN tickers AS t ON t.ticker = sht.ticker
-            WHERE t.is_fake = 0 AND subs.created_utc > @from AND subs.created_utc <= @to
+            WHERE t.is_fake = 0 AND subs.created_utc > @from AND subs.created_utc <= @to AND subs.subreddit IN (${params.join(',')})
             GROUP BY t.ticker, day_group, subs.subreddit, t.ticker
         `);
 
-        const results = query.all({from, to}) as GetAllSubmissionsResultNoIdsArray[];
-
-        return results.map(x => ({...x, ids: x.ids.split(',')}));
+        return query.all({from, to, ...paramsMap}) as GetAllSubmissionsResultNoIdsArray[];
     }
 
     public getAllSubreddits() {
@@ -169,6 +175,16 @@ export class Database {
                 return res;
             }, {});
     }
+
+    private mapArrayToParams(items: string[]) {
+        const params = items.map((_, i) => '@p' + i);
+        const paramsMap = items.reduce((res, item, i) => {
+            res['p' + i] = item;
+            return res;
+        }, {} as Record<string, string>);
+
+        return {params, paramsMap};
+    }
 }
 
 export interface GetAllSubmissionsResult {
@@ -176,5 +192,5 @@ export interface GetAllSubmissionsResult {
     name: string;
     day_group: string;
     subreddit: string;
-    ids: string[];
+    submissionCount: number;
 }

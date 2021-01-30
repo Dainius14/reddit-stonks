@@ -1,25 +1,25 @@
 import classNames from 'classnames';
 import {Pagination, Table, Tooltip} from 'antd';
 import * as React from 'react';
+import {FC, FunctionComponent, ReactNode, useEffect, useMemo, useState} from 'react';
 import {ColumnGroupType, ColumnsType, ColumnType} from 'antd/es/table';
 import './RSTable.styles.scss';
-import {FC, FunctionComponent, ReactNode, useEffect, useMemo, useState} from 'react';
 import {
     DayWithSubreddits,
     SubredditWithSubmissionIds,
     TickerWithSubmissionIdsForEachDay,
 } from '../../models/TableData';
-import {Key, SorterResult, TableCurrentDataSource, TablePaginationConfig} from 'antd/lib/table/interface';
+import {SorterResult} from 'antd/lib/table/interface';
 import {formatISO} from 'date-fns';
 import {calculateData} from '../../helpers/data-calculations';
 import {SortOrder} from 'antd/es/table/interface';
 import {RedditStonksApi} from '../../api';
-import {StockDataResponseDTO } from '../../../../backend/src/models/dto';
-import {RSHeartButton, } from '../heart-button/RSHeartButton';
+import {StockDataResponseDTO} from '../../../../backend/src/models/dto';
+import {RSHeartButton} from '../heart-button/RSHeartButton';
 
 
 const dayColKey = 'days';
-const stockDataRefreshTimeSeconds = 10;
+const stockDataRefreshTimeSeconds = 60;
 
 interface RSTableProps {
     searchText: string;
@@ -29,7 +29,6 @@ interface RSTableProps {
     data: TickerWithSubmissionIdsForEachDay[];
     onExpandedRowRender: (row: TickerWithSubmissionIdsForEachDay) => JSX.Element;
     dataUpdatedAt?: Date;
-    onChange: (pagination: TablePaginationConfig, filters: Record<string, (Key | boolean)[] | null>, sorter: SorterResult<TickerWithSubmissionIdsForEachDay> | SorterResult<TickerWithSubmissionIdsForEachDay>[], extra: TableCurrentDataSource<TickerWithSubmissionIdsForEachDay>) => void
     pageHeaderHeight: number,
     children: {
         footerLeftSide: ReactNode
@@ -37,23 +36,21 @@ interface RSTableProps {
     lovedTickers: Set<string>
 }
 
-let previouslySelectedSubreddits: Set<string> = new Set<string>();
 let updateStockDataInterval: any;
 
 export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups, availableSubreddits, selectedSubreddits, data, onExpandedRowRender,
-        onChange, pageHeaderHeight, children, lovedTickers}) => {
+        pageHeaderHeight, children, lovedTickers}) => {
 
     useEffect(() => setTableHeaderHeight(document.querySelector('.rs-main-data-table .ant-table-header')!.clientHeight), [selectedSubreddits]);
 
     const [tableHeaderHeight, setTableHeaderHeight] = useState<number>(0);
     const [sortKey, setSortKey] = useState<string>(formatKey([dayColKey, 0, 'total']));
-    const [sortOrder, setSortOrder] = useState<SortOrder | undefined>('descend');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('descend');
     const [page, setPage] = useState<number>(0);
     const [pageSize, setPageSize] = useState<number>(40);
     const [stockData, setStockData] = useState<StockDataResponseDTO>({});
 
-    const availableColumns = useMemo(() => createColumns(dayGroups, availableSubreddits,
-        () => previouslySelectedSubreddits !== selectedSubreddits, stockData, lovedTickers), [dayGroups, availableSubreddits, stockData, lovedTickers]) ;
+    const availableColumns = useMemo(() => createColumns(dayGroups, availableSubreddits, stockData, lovedTickers), [dayGroups, availableSubreddits, stockData, lovedTickers]) ;
     const filteredColumns = useMemo(() => filterColumns(availableColumns, selectedSubreddits), [availableColumns, selectedSubreddits]);
 
     const calculatedRows = useMemo(() => calculateData(data, selectedSubreddits), [data, selectedSubreddits]);
@@ -61,12 +58,10 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
 
     const sortedRows = useMemo(() => sort(filteredOnSearchTextRows, sortKey, sortOrder), [filteredOnSearchTextRows, sortKey, sortOrder]);
 
-
     const rowsForPage = sortedRows.slice(page * pageSize, page * pageSize + pageSize);
 
-
     useEffect(() => {
-        const fetchData = async () => {
+        async function fetchData() {
             if (rowsForPage.length > 0) {
                 try {
                     const res = await RedditStonksApi.getStockData(rowsForPage.map(x => x.ticker));
@@ -77,14 +72,13 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
                 }
             }
         }
+
         updateStockDataInterval = clearInterval(updateStockDataInterval);
         fetchData();
         updateStockDataInterval = setInterval(() => fetchData(), stockDataRefreshTimeSeconds * 1000);
     }, [page, pageSize, sortKey, sortOrder, searchText])
 
     const totalRows = sortedRows.length;
-
-    previouslySelectedSubreddits = selectedSubreddits;
 
     return (<>
         <Table
@@ -106,7 +100,7 @@ export const RSTable: FunctionComponent<RSTableProps> = ({searchText, dayGroups,
                 sorter = sorter as SorterResult<TickerWithSubmissionIdsForEachDay>;
                 if (extra.action === 'sort') {
                     setSortKey(sorter.columnKey as string);
-                    setSortOrder(sorter.order);
+                    setSortOrder(sorter.order!);
                 }
             }}
         />
@@ -141,23 +135,20 @@ function sort(filteredOnSearchTextRows: TickerWithSubmissionIdsForEachDay[], key
     if (key === 'ticker') {
         return arrCopy.sort((a, b) => a.ticker.localeCompare(b.ticker) * direction);
     }
+    else if (key === 'all-day-total') {
+        return arrCopy.sort((a, b) => (a.submissionCount - b.submissionCount) * direction);
+    }
     else if (key.startsWith(dayColKey)) {
         const [, dayStr, subCol] = key.split('@');
         const day = parseInt(dayStr);
 
         if (subCol === 'total') {
-            return arrCopy.sort((a, b) => {
-                const aSubmissions = a.days[day].subreddits
-                    .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0);
-                const bSubmissions = b.days[day].subreddits
-                    .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0);
-                return (aSubmissions - bSubmissions) * direction;
-            });
+            return arrCopy.sort((a, b) => (a.days[day].submissionCount - b.days[day].submissionCount) * direction);
         }
         else {
             return arrCopy.sort((a, b) => {
-                const aSubmissions = a.days[day].subreddits.find(x => x.subreddit === subCol)?.submissionIds.length ?? 0;
-                const bSubmissions = b.days[day].subreddits.find(x => x.subreddit === subCol)?.submissionIds.length ?? 0;
+                const aSubmissions = a.days[day].subreddits.find(x => x.subreddit === subCol)?.submissionCount ?? 0;
+                const bSubmissions = b.days[day].subreddits.find(x => x.subreddit === subCol)?.submissionCount ?? 0;
                 return (aSubmissions - bSubmissions) * direction;
             });
         }
@@ -173,8 +164,8 @@ function filterDataOnSearchText(rows: TickerWithSubmissionIdsForEachDay[], searc
         : rows;
 }
 
-function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], shouldDayGroupsTotalColumnUpdateFn: () => boolean,
-                       stockData: StockDataResponseDTO, lovedTickers: Set<string>): ColumnType<TickerWithSubmissionIdsForEachDay>[] {
+function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], stockData: StockDataResponseDTO,
+                       lovedTickers: Set<string>): ColumnType<TickerWithSubmissionIdsForEachDay>[] {
     const titleColumn: ColumnType<TickerWithSubmissionIdsForEachDay> = {
         title: 'Ticker',
         key: 'ticker',
@@ -210,6 +201,16 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
             }
         };
 
+    const allDayTotal: ColumnType<TickerWithSubmissionIdsForEachDay> = {
+        title: 'All day total',
+        className: 'total-all-day-column',
+        width: 65,
+        key: 'all-day-total',
+        dataIndex: 'submissionCount',
+        sorter: () => 0,
+        shouldCellUpdate: (current: TickerWithSubmissionIdsForEachDay, previous: TickerWithSubmissionIdsForEachDay) => current.days[0].subreddits.length !== previous.days[0].subreddits.length,
+    };
+
     const daysGroupColumnGroups: ColumnGroupType<TickerWithSubmissionIdsForEachDay>[] = dayGroupsDesc.map((day, dayIndex) => ({
         key: formatKey([dayColKey, dayIndex]),
         title: formatISO(new Date(day), {representation: 'date'}),
@@ -217,15 +218,14 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
             {
                 title: 'Total',
                 className: 'total-column',
-                width: 80,
+                width: 85,
                 key: formatKey([dayColKey, dayIndex, 'total']),
                 dataIndex: ['days', dayIndex],
                 sorter: () => 0,
+                shouldCellUpdate: (current: TickerWithSubmissionIdsForEachDay, previous: TickerWithSubmissionIdsForEachDay) => current.days[0].subreddits.length !== previous.days[0].subreddits.length,
                 render: (currentDay: DayWithSubreddits) => {
                     const isLastColumn = dayIndex === dayGroupsDesc.length - 1;
-                    const allTickerCountForDay = currentDay.subreddits
-                        .reduce((sum, subreddit) => sum + subreddit.submissionIds.length, 0);
-                    return renderCell(allTickerCountForDay, currentDay.change, currentDay.isChangeFinite, isLastColumn);
+                    return renderCell(currentDay.submissionCount, currentDay.change, currentDay.isChangeFinite, isLastColumn);
                     },
                 },
                 ...availableSubreddits.map((subreddit) => {
@@ -236,10 +236,11 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
                         key: formatKey([dayColKey, dayIndex, subreddit]),
                         dataIndex: ['days', dayIndex, 'subreddits'],
                         sorter: () => 0,
+                        shouldCellUpdate: () => false,
                         render: (todaysSubreddits: SubredditWithSubmissionIds[]) => {
                             const isLastColumn = dayIndex === dayGroupsDesc.length - 1;
                             const currentSubreddit = todaysSubreddits.find(x => x.subreddit === subreddit);
-                            return currentSubreddit && renderCell(currentSubreddit.submissionIds.length, currentSubreddit.change, currentSubreddit.isChangeFinite, isLastColumn);
+                            return currentSubreddit && renderCell(currentSubreddit.submissionCount, currentSubreddit.change, currentSubreddit.isChangeFinite, isLastColumn);
                         },
                     };
                 })],
@@ -248,10 +249,11 @@ function createColumns(dayGroupsDesc: string[], availableSubreddits: string[], s
     const columns: ColumnsType<TickerWithSubmissionIdsForEachDay> = [
         titleColumn,
         stockDataColumnGroup,
+        allDayTotal,
         ...daysGroupColumnGroups,
     ];
 
-    (columns[2] as ColumnGroupType<TickerWithSubmissionIdsForEachDay>).children[0].defaultSortOrder = 'descend';
+    (columns[3] as ColumnGroupType<TickerWithSubmissionIdsForEachDay>).children[0].defaultSortOrder = 'descend';
 
     return columns;
 }
@@ -272,9 +274,9 @@ function renderCell(count: number, change: number, isChangeFinite: boolean, isLa
         <>
             <span className={'count'}>{count}</span>
             {!isLastColumn && change !== 0 &&
-                <span
+                <div
                     className={changeClassName}>{getChangeText(change, isChangeFinite)}
-                </span>
+                </div>
             }
         </>
     )
@@ -285,8 +287,8 @@ function filterColumns(allColumns: ColumnType<TickerWithSubmissionIdsForEachDay>
     for (let i = 0; i < allColumns.length; i++) {
         const columnGroup = allColumns[i] as ColumnGroupType<TickerWithSubmissionIdsForEachDay>;
 
-        // Skip ticker and stock info columns
-        if (i < 2) {
+        // Skip first few columns
+        if (i < 3) {
             filteredColumns.push(columnGroup);
             continue;
         }

@@ -1,6 +1,6 @@
 .rs-main-data-table {
     .change {
-        font-size: 60%;
+        font-size: 8px;
         margin-left: 1ch;
     }
 
@@ -12,7 +12,15 @@
         color: green;
     }
 
-    .total-column .count {
+    .total-column {
+        border-left: 1px solid #ccc;
+    }
+    
+    td.total-column .count {
+        font-weight: bold;
+    }
+
+    td.total-all-day-column {
         font-weight: bold;
     }
 

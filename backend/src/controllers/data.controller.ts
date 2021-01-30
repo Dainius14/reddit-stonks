@@ -1,10 +1,9 @@
 import {Context} from 'koa';
 import {Database} from '../database/database';
 import {config} from '../config';
-import {startOfDay, sub} from 'date-fns';
+import {endOfDay, getUnixTime, startOfDay} from 'date-fns';
 import {MainDataService} from '../services/main-data-service';
-import {MainDataResponseDTO, SubmissionDTO, SubmissionsResponseDTO} from '../models/dto';
-import {getSomeDaysAgoEndOfDayTimestamp, getSomeDaysAgoStartOfDayTimestamp} from '../utils';
+import {MainDataResponseDTO, SubmissionDTO} from '../models/dto';
 
 export class DataController {
     private db: Database;
@@ -16,16 +15,13 @@ export class DataController {
     }
 
     public getData(ctx: Context) {
-        const days = parseInt(ctx.query.days);
-        if (Number.isNaN(days)) {
-            return ctx.status = 400;
-        }
+        const fromDate = startOfDay(new Date(ctx.query.from));
+        const toDate = endOfDay(new Date(ctx.query.to));
+        const fromDateUnix = getUnixTime(fromDate);
+        const toDateUnix = getUnixTime(toDate);
 
-        const startTimestamp = getSomeDaysAgoStartOfDayTimestamp(days);
-        const endTimeStamp = getSomeDaysAgoEndOfDayTimestamp(days);
-
-        const groupedSubmissionResult = this.db.getGroupedSubmissions(startTimestamp, endTimeStamp);
-        const structuredSubmissions = this.mainDataService.transformToStructuredData(groupedSubmissionResult, new Date(startTimestamp * 1000), new Date(endTimeStamp * 1000), config.availableSubreddits);
+        const groupedSubmissionResult = this.db.getGroupedSubmissions(fromDateUnix, toDateUnix, config.availableSubreddits);
+        const structuredSubmissions = this.mainDataService.transformToStructuredData(groupedSubmissionResult, fromDate, toDate, config.availableSubreddits);
 
         const lastSubmissionTime = this.db.getLastSubmissionTime() ?? new Date().getTime() / 1000;
 
@@ -33,7 +29,7 @@ export class DataController {
             data: structuredSubmissions,
             lastSubmissionTime: new Date(lastSubmissionTime * 1000).toISOString(),
             submissionsUpdated: new Date(this.db.getSubmissionsUpdated() * 1000).toISOString(),
-            daysDesc: this.mainDataService.getDayGroupsAsc(new Date(startTimestamp * 1000), new Date(endTimeStamp * 1000)).reverse()
+            daysDesc: this.mainDataService.getDayGroupsAsc(fromDate, toDate).reverse()
         } as MainDataResponseDTO;
     }
 
@@ -43,16 +39,18 @@ export class DataController {
 
 
     public async getSubmissions(ctx: Context) {
-        const days = parseInt(ctx.query.days);
-        if (Number.isNaN(days)) {
-            return ctx.status = 400;
-        }
+        const ticker = ctx.query.ticker;
+        const skip = parseInt(ctx.query.skip);
+        const limit = parseInt(ctx.query.limit);
+        const sortBy = ctx.query.sortBy;
+        const order = ctx.query.order;
+        const subreddits = decodeURIComponent(ctx.query.subreddits).split(',');
+        const from = startOfDay(new Date(ctx.query.from));
+        const to = endOfDay(new Date(ctx.query.to));
 
-        const startTimestamp = getSomeDaysAgoStartOfDayTimestamp(days);
 
-        const submissions = this.db.getSubmissions(startTimestamp);
-        const submissionDtoMap = submissions.reduce((result: Record<string, SubmissionDTO>, submission) => {
-            result[submission.id] = {
+        const submissions = this.db.getSubmissions(ticker, skip, limit, sortBy, order === 'asc', from, to, subreddits);
+        const submissionDtos: SubmissionDTO[] = submissions.map((submission) => ({
                 created_utc: submission.created_utc,
                 id: submission.id,
                 is_removed: submission.selftext === '[removed]',
@@ -61,9 +59,7 @@ export class DataController {
                 title: submission.title,
                 url: submission.url,
                 author: submission.author
-            };
-            return result;
-        }, {});
-        ctx.body = submissionDtoMap as SubmissionsResponseDTO;
+            }));
+        ctx.body = submissionDtos;
     }
 }

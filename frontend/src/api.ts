@@ -1,10 +1,12 @@
 import {MainDataResponseDTO, StockDataResponseDTO, SubmissionDTO} from '../../backend/src/models/dto';
+import {formatISO} from 'date-fns';
 
 export class RedditStonksApi {
 
-    static async getMainData(days: number): Promise<MainDataResponseDTO> {
+    static async getMainData(from: Date, to: Date): Promise<MainDataResponseDTO> {
         const params = new URLSearchParams({
-            days: days.toString()
+            from: formatISO(from, {representation: 'date'}),
+            to: formatISO(to, {representation: 'date'}),
         });
         return await this.betterFetch(`/api/data?${params.toString()}`, {
             method: 'GET'
@@ -17,10 +19,11 @@ export class RedditStonksApi {
         });
     }
 
-    static async getSubmissions(days: number): Promise<Record<string, SubmissionDTO>> {
-        const params = new URLSearchParams({
-            days: days.toString()
-        });
+    static async getSubmissions(ticker: string, from: Date, to: Date, limit: number, skip: number, sortBy: string, order: 'asc' | 'desc', subreddits: string[]): Promise<SubmissionDTO[]> {
+        const params = new URLSearchParams({ ticker, limit, skip, sortBy, order, subreddits,
+            from: formatISO(from, {representation: 'date'}),
+            to: formatISO(to, {representation: 'date'}),
+        } as any);
         return await this.betterFetch(`/api/data/submissions?${params.toString()}`, {
             method: 'GET'
         });

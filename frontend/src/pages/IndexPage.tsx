@@ -8,14 +8,10 @@ import {SearchOutlined} from '@ant-design/icons';
 import './IndexPage.styles.scss';
 import {RedditStonksApi, RequestError} from '../api';
 import {LocalStorage} from '../helpers/local-storage';
-import {
-    DayWithSubreddits,
-    TickerWithSubmissionIdsForEachDay,
-} from '../models/TableData';
+import {TickerWithSubmissionIdsForEachDay} from '../models/TableData';
 import {mapFromTickerGroupDtos} from '../helpers/mappers';
 import {formatDate} from '../utilities';
-import {formatDistanceToNow} from 'date-fns';
-import {NewsDTO, SubmissionDTO } from '../../../backend/src/models/dto';
+import {formatDistanceToNow, formatISO, sub} from 'date-fns';
 
 
 interface IndexPageProps {
@@ -31,7 +27,6 @@ interface IndexPageState {
     submissionsUpdatedAt?: Date;
     searchText: string;
     tableDataLoading: boolean;
-    news: Record<string, NewsDTO[]>;
     lovedTickers: Set<string>,
 }
 
@@ -47,95 +42,39 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
         submissionsUpdatedAt: undefined,
         searchText: '',
         tableDataLoading: true,
-        news: {},
         lovedTickers: new Set<string>()
     };
-
-    private submissions: Record<string, SubmissionDTO> = {};
 
     public async componentDidMount() {
         this.setLovedTickers(new Set(LocalStorage.getObject<string[]>('lovedTickers')));
         this.setTableDataLoading(true);
         await this.loadAvailableSubreddits();
-        await this.loadSubmissions(5);
-        await this.loadTableData(0);
+        await this.loadTableData(sub(new Date(), {days: 5}), new Date());
         this.setHeaderHeight(document.querySelector('.rs-index-header')!.clientHeight);
         window.addEventListener('resize', () => this.setHeaderHeight(document.querySelector('.rs-index-header')!.clientHeight));
         this.setTableDataLoading(false);
-
-        this.loadMoreTableData(1, 5);
     }
 
 
-    private async loadTableData(day: number) {
+    private async loadTableData(from: Date, to: Date) {
+        let data: TickerWithSubmissionIdsForEachDay[] = [];
+        let lastSubmissionTime = new Date(0);
+        let submissionsUpdated = new Date(0);
+        let daysDesc = [formatISO(new Date(), {representation: 'date'})];
         try {
-            const response = await RedditStonksApi.getMainData(day);
-            this.setMainData(mapFromTickerGroupDtos(response.data));
-            this.setMainDataAndSubmissionsUpdatedAt(new Date(response.lastSubmissionTime), new Date(response.submissionsUpdated));
-            this.setAvailableDayGroups(response.daysDesc);
+            const response = await RedditStonksApi.getMainData(from, to);
+            data = mapFromTickerGroupDtos(response.data);
+            lastSubmissionTime = new Date(response.lastSubmissionTime);
+            submissionsUpdated = new Date(response.submissionsUpdated);
+            daysDesc = response.daysDesc;
         }
         catch (ex) {
             const e = ex as RequestError;
             console.error(e.message, e.response);
         }
-    }
-
-    private async loadMoreTableData(day: number, max: number) {
-        try {
-            const response = await RedditStonksApi.getMainData(day);
-            const mappedData = mapFromTickerGroupDtos(response.data);
-            const mergedData = this.mergeData(this.state.mainData, mappedData, this.state.availableSubreddits);
-            this.setMainData(mergedData);
-            this.setAvailableDayGroups([...this.state.availableDayGroups, ...response.daysDesc]);
-
-            if (day + 1 <= max) {
-                this.loadMoreTableData(day + 1, max);
-            }
-        }
-        catch (ex) {
-            const e = ex as RequestError;
-            console.error(e.message, e.response);
-        }
-    }
-
-    private mergeData(currentAllData: TickerWithSubmissionIdsForEachDay[], newAllData: TickerWithSubmissionIdsForEachDay[], subreddits: string[]) {
-        const allTickers = [...new Set([...currentAllData.map(x => x.ticker), ...newAllData.map(x => x.ticker)])].sort();
-
-        const dummyMissingDay: DayWithSubreddits = {
-            date: newAllData[0].days[0].date,
-            subreddits: subreddits.map(x => ({
-                subreddit: x,
-                submissionIds: [],
-                isChangeFinite: true,
-                change: 0
-            })),
-            change: 0,
-            isChangeFinite: true
-        }
-        const dummyMissingExistingDays: DayWithSubreddits[] = currentAllData[0].days.map(x => ({
-            ...dummyMissingDay,
-            date: x.date
-        }));
-
-        const mergedData = allTickers.map(ticker => {
-            const existingData = currentAllData.find(x => x.ticker === ticker);
-            const newData = newAllData.find(x => x.ticker === ticker);
-            if (existingData && newData) {
-                existingData.days.push(...newData.days);
-                return existingData;
-            }
-            else if (existingData && !newData) {
-                existingData.days.push({...dummyMissingDay});
-                return existingData;
-            }
-            else {
-                newData!.days.splice(0, 0, ...dummyMissingExistingDays);
-                return newData!;
-            }
-        });
-
-
-        return mergedData;
+        this.setMainData(data);
+        this.setMainDataAndSubmissionsUpdatedAt(lastSubmissionTime, submissionsUpdated);
+        this.setAvailableDayGroups(daysDesc);
     }
 
     private async loadAvailableSubreddits() {
@@ -149,16 +88,6 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
 
             this.setAvailableSubreddits(availableSubreddits);
             this.setSelectedSubreddits(new Set<string>(selectedSubreddits));
-        }
-        catch (ex) {
-            const e = ex as RequestError;
-            console.error(e.message, e.response);
-        }
-    }
-
-    private async loadSubmissions(days: number) {
-        try {
-            this.submissions = await RedditStonksApi.getSubmissions(days);
         }
         catch (ex) {
             const e = ex as RequestError;
@@ -217,14 +146,11 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
                     data={this.state.mainData}
                     pageHeaderHeight={this.state.headerHeight}
                     lovedTickers={this.state.lovedTickers}
-                    onChange={(a, b, c, d) => console.log(a, b, c, d)}
                     onExpandedRowRender={(calculatedRow) => <RSExpandedRow
-                        allSubmissions={this.submissions}
-                        calculatedRow={calculatedRow}
                         rawRow={this.state.mainData.find(x => x.ticker === calculatedRow.ticker)!}
-                        selectedSubreddits={this.state.selectedSubreddits}
-                        news={this.state.news[calculatedRow.ticker]}
-                        newsExpanded={async () => await this.onNewsExpanded(calculatedRow.ticker)}
+                        calculatedRow={calculatedRow}
+                        availableSubreddits={this.state.availableSubreddits}
+                        selectedSubreddits={[...this.state.selectedSubreddits]}
                         isLoved={this.state.lovedTickers.has(calculatedRow.ticker)}
                         isLovedChanged={(value) => this.onIsLovedChanged(calculatedRow.ticker, value)}
                     />}
@@ -294,17 +220,6 @@ export class IndexPage extends Component<IndexPageProps, IndexPageState> {
     private setLovedTickers(value: Set<string>) {
         this.setState(() => ({
             lovedTickers: value,
-        }));
-    }
-
-    private async onNewsExpanded(ticker: string) {
-        if (this.state.news[ticker]) {
-            return;
-        }
-
-        const news = await RedditStonksApi.getNews(ticker);
-        this.setState((prevState) => ({
-            news: {...news, [ticker]: news}
         }));
     }
 }

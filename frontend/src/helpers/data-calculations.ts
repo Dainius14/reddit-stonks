@@ -1,21 +1,14 @@
 import {TickerWithSubmissionIdsForEachDay} from '../models/TableData';
-
 export function calculateData(tickerGroups: TickerWithSubmissionIdsForEachDay[], selectedSubreddits: Set<string>): TickerWithSubmissionIdsForEachDay[] {
     return tickerGroups.map(tickerGroup => {
         const newTickerGroup = filterSelectedSubredditsForGroup(selectedSubreddits, tickerGroup);
-
-        calculateChanges(newTickerGroup);
-
-        if (newTickerGroup.ticker === 'GME')
-        {
-            console.log(newTickerGroup)
-        }
+        calculate(newTickerGroup);
         return newTickerGroup;
     });
 }
 
 
-function calculateChanges(tickerGroup: TickerWithSubmissionIdsForEachDay) {
+function calculate(tickerGroup: TickerWithSubmissionIdsForEachDay) {
     for (let i = 0; i < tickerGroup.days.length; i++){
         let currentDay = tickerGroup.days[i];
         let previousDay = tickerGroup.days[i + 1];
@@ -28,8 +21,8 @@ function calculateChanges(tickerGroup: TickerWithSubmissionIdsForEachDay) {
             const currentDaySubreddit = currentDay.subreddits[j];
             const previousDaySubreddit = previousDay?.subreddits[j];
 
-            const currentSubmissionsCount = currentDaySubreddit.submissionIds.length;
-            const previousSubmissionsCount = previousDaySubreddit?.submissionIds.length ?? 0;
+            const currentSubmissionsCount = currentDaySubreddit.submissionCount;
+            const previousSubmissionsCount = previousDaySubreddit?.submissionCount ?? 0;
 
             const {change, isChangeFinite} = getChange(currentSubmissionsCount, previousSubmissionsCount);
             currentDaySubreddit.change = change;
@@ -43,7 +36,12 @@ function calculateChanges(tickerGroup: TickerWithSubmissionIdsForEachDay) {
         const {change, isChangeFinite} = getChange(currentDayAllSubmissionCount, previousDayAllSubmissionCount);
         currentDay.change = change;
         currentDay.isChangeFinite = isChangeFinite;
+
+
+        currentDay.submissionCount = currentDay.subreddits.reduce((sum, subreddit) => sum + subreddit.submissionCount, 0);
     }
+
+    tickerGroup.submissionCount = tickerGroup.days.reduce((sum, day) => sum + day.submissionCount, 0);
 }
 
 function getChange(currentCount: number, previousCount: number) {
@@ -75,11 +73,13 @@ function filterSelectedSubredditsForGroup(selectedSubreddits: Set<string>, ticke
     return {
         ticker: tickerGroup.ticker,
         tickerName: tickerGroup.tickerName,
+        submissionCount: 0,
         days: tickerGroup.days.map(day => ({
             date: day.date,
             subreddits: day.subreddits.filter(sub => selectedSubreddits.has(sub.subreddit)),
             isChangeFinite: false,
-            change: 0
+            change: 0,
+            submissionCount: 0
         }))
     };
 }

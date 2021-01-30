@@ -38,7 +38,7 @@ export class MainDataService {
 
             const currentSubredditGroup = {
                 subreddit: row.subreddit,
-                submissionIds: row.ids,
+                submissionCount: row.submissionCount,
             };
 
             if (row.ticker !== prevTicker) {
@@ -114,7 +114,7 @@ export class MainDataService {
                     if (!currentSubredditGroup || currentSubredditGroup.subreddit !== expectedSubredditGroup) {
                         day.subreddits.splice(i, 0, {
                             subreddit: expectedSubredditGroup,
-                            submissionIds: []
+                            submissionCount: 0
                         });
                     }
                 }
